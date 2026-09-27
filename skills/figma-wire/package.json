@@ -1,14 +1,12 @@
 {
   "name": "figma-wire",
   "version": "1.4.0",
-  "private": true,
   "description": "Wire any AI coding agent to Figma: probe/repair the local Dev Mode MCP server across harnesses (ZCode, Claude Code, Codex, Cursor, Windsurf, VS Code, Gemini CLI), parse share links, and call Figma MCP tools from plain bash — no MCP client required.",
   "license": "MIT",
   "author": "Adham Haitham <adhamhaithameid@users.noreply.github.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/adhamhaithameid/mcp-wire.git",
-    "directory": "skills/figma-wire"
+    "url": "git+https://github.com/adhamhaithameid/figma-wire.git"
   },
   "keywords": [
     "figma",

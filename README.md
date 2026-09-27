@@ -20,11 +20,11 @@ top of it.
 
 ## The family
 
-| Skill | What it wires into your agent | Install |
-|---|---|---|
-| **[figma-wire](skills/figma-wire)** | Figma — design context, screenshots, tokens, and a pixel-diff gate between the design and your build | `npm i -g @adhamhaithameid/mcp-wire` (both CLIs + all skills) |
-| **[mcp-wire](skills/mcp-wire)** | the engine itself as a skill — call any MCP server from plain bash, from any agent | `npm i -g @adhamhaithameid/mcp-wire` |
-| *next skill — your idea here* | notion, linear, sheets, Jira… | roadmap |
+| Skill | What it wires into your agent | Repo | Install |
+|---|---|---|---|
+| **[figma-wire](https://github.com/adhamhaithameid/figma-wire)** | Figma — design context, screenshots, tokens, and a pixel-diff gate between the design and your build | [adhamhaithameid/figma-wire](https://github.com/adhamhaithameid/figma-wire) | `npm i -g @adhamhaithameid/mcp-wire` (both CLIs + all skills) |
+| **[mcp-wire](skills/mcp-wire)** | the engine itself as a skill — call any MCP server from plain bash, from any agent | in this repo | `npm i -g @adhamhaithameid/mcp-wire` |
+| *next skill — your idea here* | notion, linear, sheets, Jira… | *own repo — roadmap* | |
 
 One engine, many skills: fix the engine once, and the release pipeline stamps the fix
 into every skill. See [How the family works](#how-the-family-works).
@@ -63,15 +63,20 @@ npm i -g @adhamhaithameid/mcp-wire && figma-wire doctor    # 30 seconds to a Fig
 
 ## How the family works
 
-Bash has no linker, so skills **vendor** the engine at release time instead of
-importing it at runtime:
+Each skill lives in its **own repository** and is developed, tested, and released
+independently; this repo is the **engine home and the family index**. Bash has no
+linker, so sharing happens by vendoring at release time, never by runtime imports:
 
-1. `engine/mcp-wire.sh` is the single source of truth.
-2. `scripts/sync-engine.sh` stamps a copy into each skill package.
-3. CI checks vendored copies are fresh; tagging `figma-wire-v*` publishes that skill.
+1. `engine/mcp-wire.sh` is the single source of truth for the engine.
+2. Skill repos (e.g. [figma-wire](https://github.com/adhamhaithameid/figma-wire))
+   reference the engine and develop against it.
+3. `scripts/sync-skills.sh` stamps each skill's current tree into `skills/` here;
+   `scripts/sync-engine.sh` stamps the engine into each skill package.
+4. Tagging `v*` here runs every suite, publishes the family package (all skills),
+   and creates the GitHub Release.
 
-One engine commit → one workflow run → every skill ships the fix, and every installed
-skill stays fully self-contained.
+One engine commit → one sync → one release → every skill ships the fix, and every
+installed skill stays fully self-contained.
 
 ## Development
 

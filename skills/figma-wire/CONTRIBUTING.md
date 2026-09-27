@@ -6,7 +6,7 @@ deps beyond bash/curl/jq. Keep that spirit and any PR is easy to land.
 ## Setup
 
 ```bash
-git clone https://github.com/adhamhaithameid/mcp-wire && cd mcp-wire/skills/figma-wire
+git clone https://github.com/adhamhaithameid/figma-wire
 bash tests/run-tests.sh   # 85 hermetic tests; needs bash, curl, jq, node
 bash tests/e2e.sh         # 15 installer e2e tests (sandboxed HOME)
 ```

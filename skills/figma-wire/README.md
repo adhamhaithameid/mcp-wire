@@ -19,6 +19,10 @@ token.
 > **figma-wire is the first skill in the [mcp-wire](https://github.com/adhamhaithameid/mcp-wire) family** — a universal
 > speak-MCP-from-plain-bash engine, shared across skills. The `call` and `diff`
 > commands run on it; engine improvements land in every skill in the family.
+>
+> This repository is figma-wire's independent home. The family's other skills and the
+> shared engine live in the [mcp-wire monorepo](https://github.com/adhamhaithameid/mcp-wire);
+> the planned figma-* domain skills are mapped in [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -47,7 +51,7 @@ npx skills-npm setup      # symlinks the bundled skill into supported agents
 **Using the script**
 
 ```bash
-git clone https://github.com/adhamhaithameid/mcp-wire && cd mcp-wire/skills/figma-wire
+git clone https://github.com/adhamhaithameid/figma-wire
 bash install.sh            # runs the full test suite first, then installs
 ```
 
@@ -162,7 +166,7 @@ asserts nothing was written.
 Small script, big test suite — keep both. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules (probe-before-write, atomic
 edits, hermetic tests) and pick up a
-[good first issue](https://github.com/adhamhaithameid/mcp-wire/issues?q=is%3Aissue+label%3A%22good+first+issue%22).
+[good first issue](https://github.com/adhamhaithameid/figma-wire/issues?q=is%3Aissue+label%3A%22good+first+issue%22).
 
 ## Support
 
