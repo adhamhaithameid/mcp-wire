@@ -82,6 +82,7 @@ fully offline unit tests. Run after any script edit.
 
 ## Sharing
 
-Self-contained repo (`install.sh`, `package.json` (`npm i -g figma-wire`), CI on
-ubuntu+macOS, MIT `LICENSE`). Public on GitHub → installable via
-`npx skills add adhamhaithameid/figma-wire` (skills.sh) and npm.
+Self-contained repo (`install.sh`, `package.json`, CI on ubuntu+macOS, MIT `LICENSE`).
+Public on GitHub (`adhamhaithameid/figma-wire`) → installable via
+`npx skills add adhamhaithameid/figma-wire` (skills.sh); distributed on npm inside the
+family package `@adhamhaithameid/mcp-wire`.

@@ -3,6 +3,14 @@
 All notable changes to the mcp-wire family (engine + skills) are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is semver.
 
+## [1.0.1] — 2026-09-29
+
+### Changed
+
+- **Documentation release**: the standalone `figma-wire` npm package has been retired —
+  this family package is now the only npm distribution (both CLIs + every skill).
+  README, skill docs, and install instructions all updated to the family-package flow.
+
 ## [1.0.0] — 2026-09-24
 
 ### The family, as one package

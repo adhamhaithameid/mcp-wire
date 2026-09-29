@@ -26,7 +26,8 @@ overrides.
 4. **shellcheck clean.** CI runs `shellcheck -S warning` on the script (the local test
    suite runs it too when installed). Watch for unused `local` declarations.
 5. **One file.** If your idea needs a second script, let's talk in an issue first —
-   the single-script constraint is a feature (`npm i -g figma-wire` and it just works).
+   the single-script constraint is a feature (`npm i -g @adhamhaithameid/mcp-wire`
+   and it just works).
 
 ## Adding a harness adapter
 

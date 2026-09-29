@@ -52,6 +52,10 @@ targets so you never accidentally ship credentials to a stray endpoint.
 
 ## Skills
 
+One npm package ships the whole family: `@adhamhaithameid/mcp-wire` installs both
+CLIs (`mcp-wire` + `figma-wire`) and bundles every skill's `SKILL.md` for
+skills-npm-style auto-discovery.
+
 Each skill is a self-contained folder under [`skills/`](skills/) — SKILL.md, tests,
 docs, everything — installable on its own. **[figma-wire](skills/figma-wire)** is the
 first: wire any AI coding agent to Figma, repair broken MCP configs across 8 harnesses,
