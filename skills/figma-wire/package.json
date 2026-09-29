@@ -1,6 +1,6 @@
 {
   "name": "figma-wire",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Wire any AI coding agent to Figma: probe/repair the local Dev Mode MCP server across harnesses (ZCode, Claude Code, Codex, Cursor, Windsurf, VS Code, Gemini CLI), parse share links, and call Figma MCP tools from plain bash — no MCP client required.",
   "license": "MIT",
   "author": "Adham Haitham <adhamhaithameid@users.noreply.github.com>",
@@ -37,7 +37,7 @@
   ],
   "scripts": {
     "test": "SKIP_NETWORK_TESTS=1 bash tests/run-tests.sh && bash tests/e2e.sh",
-    "prepack": "mkdir -p skills/figma-wire/references skills/mcp-wire && cp SKILL.md skills/figma-wire/SKILL.md && cp references/*.md skills/figma-wire/references/ && cp ../../skills/mcp-wire/SKILL.md skills/mcp-wire/SKILL.md"
+    "prepack": "mkdir -p skills/figma-wire/references && cp SKILL.md skills/figma-wire/SKILL.md && cp references/*.md skills/figma-wire/references/"
   },
   "engines": {
     "node": ">=16"

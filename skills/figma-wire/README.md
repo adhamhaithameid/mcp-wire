@@ -28,14 +28,17 @@ token.
 
 ## Install
 
-figma-wire ships inside the **mcp-wire family package** — one install brings the
-figma-wire CLI, the mcp-wire engine CLI, and every family skill.
-
 **Using npm (Recommended)**
 
 ```bash
-npm i -g @adhamhaithameid/mcp-wire   # installs BOTH CLIs: figma-wire + mcp-wire
-figma-wire doctor                    # probes Figma + your agent's config in one shot
+npm i -g figma-wire        # installs the `figma-wire` CLI (standalone skill)
+figma-wire doctor          # probes Figma + your agent's config in one shot
+```
+
+**The whole family in one install** — the mcp-wire engine CLI plus every family skill:
+
+```bash
+npm i -g @adhamhaithameid/mcp-wire
 ```
 
 **Using the skills CLI** (installs both family skills from the monorepo)

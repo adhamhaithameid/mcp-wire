@@ -3,6 +3,16 @@
 All notable changes to figma-wire are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is semver.
 
+## [1.4.1] — 2026-09-29
+
+### Changed
+
+- **Republished as the standalone npm package** for the mcp-wire family's
+  independent-skill distribution: install `npm i -g figma-wire` for just this skill,
+  or `npm i -g @adhamhaithameid/mcp-wire` for the engine + every family skill.
+- `prepack` no longer references monorepo-only paths; the package bundles its own
+  skills-npm mirror (`skills/figma-wire/SKILL.md` + references).
+
 ## [1.4.0] — 2026-09-24
 
 ### Added

@@ -22,7 +22,7 @@ top of it.
 
 | Skill | What it wires into your agent | Repo | Install |
 |---|---|---|---|
-| **[figma-wire](https://github.com/adhamhaithameid/figma-wire)** | Figma — design context, screenshots, tokens, and a pixel-diff gate between the design and your build | [adhamhaithameid/figma-wire](https://github.com/adhamhaithameid/figma-wire) | `npm i -g @adhamhaithameid/mcp-wire` (both CLIs + all skills) |
+| **[figma-wire](https://github.com/adhamhaithameid/figma-wire)** | Figma — design context, screenshots, tokens, and a pixel-diff gate between the design and your build | [adhamhaithameid/figma-wire](https://github.com/adhamhaithameid/figma-wire) | `npm i -g figma-wire` (skill) · `npm i -g @adhamhaithameid/mcp-wire` (everything) |
 | **[mcp-wire](skills/mcp-wire)** | the engine itself as a skill — call any MCP server from plain bash, from any agent | in this repo | `npm i -g @adhamhaithameid/mcp-wire` |
 | *next skill — your idea here* | notion, linear, sheets, Jira… | *own repo — roadmap* | |
 

@@ -11,7 +11,7 @@
 #                FIGMA_WIRE_PORT, FIGMA_WIRE_SCAN_PORTS, FIGMA_TOKEN
 set -u -o pipefail
 
-VERSION="1.4.0"
+VERSION="1.4.1"
 DEFAULT_PORT="${FIGMA_WIRE_PORT:-3845}"
 REMOTE_URL="https://mcp.figma.com/mcp"
 INIT_BODY='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"figma-wire","version":"1.0"}}}'
