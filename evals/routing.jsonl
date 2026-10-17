@@ -1,0 +1,75 @@
+{"prompt": "sample prompt 0 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 1 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 2 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 3 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 4 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 5 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 6 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 7 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 8 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 9 for mcp-wire", "expected": "mcp-wire", "notes": "auto"}
+{"prompt": "sample prompt 0 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 1 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 2 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 3 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 4 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 5 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 6 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 7 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 8 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 9 for figma-wire", "expected": "figma-wire", "notes": "auto"}
+{"prompt": "sample prompt 0 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 1 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 2 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 3 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 4 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 5 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 6 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 7 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 8 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 9 for figma-design", "expected": "figma-design", "notes": "auto"}
+{"prompt": "sample prompt 0 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 1 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 2 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 3 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 4 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 5 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 6 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 7 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 8 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 9 for figma-code", "expected": "figma-code", "notes": "auto"}
+{"prompt": "sample prompt 0 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 1 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 2 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 3 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 4 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 5 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 6 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 7 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 8 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 9 for figma-pages", "expected": "figma-pages", "notes": "auto"}
+{"prompt": "sample prompt 0 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 1 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 2 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 3 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 4 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 5 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 6 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 7 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 8 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "sample prompt 9 for figma-verify", "expected": "figma-verify", "notes": "auto"}
+{"prompt": "negative prompt 0", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 1", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 2", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 3", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 4", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 5", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 6", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 7", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 8", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 9", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 10", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 11", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 12", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 13", "expected": "none", "notes": "auto"}
+{"prompt": "negative prompt 14", "expected": "none", "notes": "auto"}

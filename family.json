@@ -1,0 +1,11 @@
+{
+  "engine": "engine/mcp-wire.sh",
+  "apps": [
+    {
+      "name": "figma-wire",
+      "repository": "https://github.com/adhamhaithameid/figma-wire",
+      "source": "../figma-wire",
+      "skills": ["figma-wire", "figma-design", "figma-code", "figma-verify", "figma-pages"]
+    }
+  ]
+}

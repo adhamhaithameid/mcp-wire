@@ -3,6 +3,37 @@
 All notable changes to the mcp-wire family (engine + skills) are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is semver.
 
+## [Unreleased]
+
+## [1.1.0] - 2026-10-17
+
+### Added
+- Stateless servers, JSON replies, id matching, auth on notification.
+- describe, --json, stdin/@file args.
+- Named servers (@name) and servers subcommand.
+- doctor command.
+- Secrets hygiene via header files.
+
+### Added
+
+- Add stdio, stateless JSON responses, paginated discovery, schemas, resources, prompts, named server profiles, JSON output, and redacted previews.
+- Add a private independent-app scaffold with schema discovery and offline checks.
+- Add Figma design, code, verification, and page skills with complete runtime bundles.
+- Add design packets, flat variable exports, saved-image comparison reports, and a reusable CI gate.
+- Add family ownership, snapshot locks, harness coverage, completion files, architecture, and security documentation.
+
+### Fixed
+
+- Make Figma calls use the shared engine and send authorization headers on every HTTP POST.
+- Keep offline diagnostics local and reject malformed responses and failed pixel comparisons.
+- Verify engine copies and reviewed family snapshots before package publication.
+- Replace the obsolete root test entrypoint and verify installed skill artifacts.
+
+### Compatibility
+
+- Preserve existing list, call, raw, and Figma call flags and default text/image behavior.
+- Keep OAuth login, native Windows support, legacy SSE transport, stream resume, and interactive callbacks outside this release.
+
 ## [1.0.1] — 2026-09-29
 
 ### Changed

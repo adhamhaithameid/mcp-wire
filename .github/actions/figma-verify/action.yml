@@ -1,0 +1,14 @@
+name: Figma Verify
+inputs:
+  page-url: { required: true }
+  node-id: { required: true }
+  tolerance: { default: "5" }
+runs:
+  using: composite
+  steps:
+    - run: ${{ github.action_path }}/run.sh
+      shell: bash
+      env:
+        INPUT_PAGE_URL: ${{ inputs.page-url }}
+        INPUT_NODE_ID: ${{ inputs.node-id }}
+        INPUT_TOLERANCE: ${{ inputs.tolerance }}

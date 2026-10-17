@@ -1,109 +1,139 @@
-<div align="center">
-
 # mcp-wire
 
-**One bash engine that speaks MCP. Many skills that wire your agent to the world.**
+One Bash MCP engine. Independent app repositories. Focused skills for useful agent workflows.
 
-[![ci](https://github.com/adhamhaithameid/mcp-wire/actions/workflows/ci.yml/badge.svg)](https://github.com/adhamhaithameid/mcp-wire/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![skills](https://img.shields.io/badge/skills-npx%20skills%20add-blue)](https://skills.sh)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-adhamhaithameid-yellow?logo=buymeacoffee)](https://www.buymeacoffee.com/adhamhaithameid)
+Give an agent with shell access a way to discover and call MCP tools, resources, and prompts.
+The engine requires Bash, curl, and jq. Figma is the first app in the family.
 
-MCP servers are everywhere, but consuming them still means writing a client. **mcp-wire**
-is a full MCP client in one bash script — handshake, JSON-RPC, SSE parsing, text to
-stdout, images to PNG — and the shared engine for a family of agent skills built on
-top of it.
-
-</div>
-
----
-
-## The family
-
-| Skill | What it wires into your agent | Repo | Install |
-|---|---|---|---|
-| **[figma-wire](https://github.com/adhamhaithameid/figma-wire)** | Figma — design context, screenshots, tokens, and a pixel-diff gate between the design and your build | [adhamhaithameid/figma-wire](https://github.com/adhamhaithameid/figma-wire) | `npm i -g figma-wire` (skill) · `npm i -g @adhamhaithameid/mcp-wire` (everything) |
-| **[mcp-wire](skills/mcp-wire)** | the engine itself as a skill — call any MCP server from plain bash, from any agent | in this repo | `npm i -g @adhamhaithameid/mcp-wire` |
-| *next skill — your idea here* | notion, linear, sheets, Jira… | *own repo — roadmap* | |
-
-One engine, many skills: fix the engine once, and the release pipeline stamps the fix
-into every skill. See [How the family works](#how-the-family-works).
-
-## The engine
+## Start from the checkout
 
 ```bash
-# install the CLI (bin: `mcp-wire`) — single file, no npm required
-curl -fsSL https://raw.githubusercontent.com/adhamhaithameid/mcp-wire/main/engine/mcp-wire.sh -o /usr/local/bin/mcp-wire
-chmod +x /usr/local/bin/mcp-wire
-
-# what tools does this MCP server have?
-engine/mcp-wire.sh https://mcp.figma.com/mcp list --header "Authorization: Bearer $T"
-
-# invoke a tool — text to stdout, images to PNG
-engine/mcp-wire.sh http://127.0.0.1:3845/mcp call get_screenshot '{"nodeId":"1:2"}' -o shot --allow-http
-
-# raw JSON-RPC when you need full control
-engine/mcp-wire.sh $URL raw '{"jsonrpc":"2.0","id":9,"method":"ping"}'
+bash engine/mcp-wire.sh "$SERVER_URL" list --json
+bash engine/mcp-wire.sh "$SERVER_URL" describe tool_name
+bash engine/mcp-wire.sh "$SERVER_URL" call tool_name '{"argument":"value"}' --json
 ```
 
-Full engine docs: [engine/README.md](engine/README.md). Requires bash, curl, jq —
-macOS and Linux; on Windows use WSL. `--allow-http` is required for plain-http
-targets so you never accidentally ship credentials to a stray endpoint.
-
-## Skills
-
-One npm package ships the whole family: `@adhamhaithameid/mcp-wire` installs both
-CLIs (`mcp-wire` + `figma-wire`) and bundles every skill's `SKILL.md` for
-skills-npm-style auto-discovery.
-
-Each skill is a self-contained folder under [`skills/`](skills/) — SKILL.md, tests,
-docs, everything — installable on its own. **[figma-wire](skills/figma-wire)** is the
-first: wire any AI coding agent to Figma, repair broken MCP configs across 8 harnesses,
-and validate implementations against the design with pixel diffs.
+For local development servers, explicitly add `--allow-http`.
+For stdio servers, pass a JSON command array:
 
 ```bash
-npm i -g @adhamhaithameid/mcp-wire && figma-wire doctor    # 30 seconds to a Figma-connected agent
+bash engine/mcp-wire.sh --stdio '["my-mcp-server","--stdio"]' list --json
 ```
 
-## How the family works
+A stdio server can require its own runtime. The client does not execute the command through a shell.
 
-Each skill lives in its **own repository** and is developed, tested, and released
-independently; this repo is the **engine home and the family index**. Bash has no
-linker, so sharing happens by vendoring at release time, never by runtime imports:
+The family npm package is `@adhamhaithameid/mcp-wire`; it provides both `mcp-wire` and `figma-wire` CLIs.
+Changes in this checkout require a reviewed release before they become available through npm.
+Run `mcp-wire install-skill` to register all family skills separately from CLI commands. [Harness instructions](docs/harnesses.md) explain discovery and supported adapters.
 
-1. `engine/mcp-wire.sh` is the single source of truth for the engine.
-2. Skill repos (e.g. [figma-wire](https://github.com/adhamhaithameid/figma-wire))
-   reference the engine and develop against it.
-3. `scripts/sync-skills.sh` stamps each skill's current tree into `skills/` here;
-   `scripts/sync-engine.sh` stamps the engine into each skill package.
-4. Tagging `v*` here runs every suite, publishes the family package (all skills),
-   and creates the GitHub Release.
+## The skill family
 
-One engine commit → one sync → one release → every skill ships the fix, and every
-installed skill stays fully self-contained.
+| Skill | Task | Source owner |
+|---|---|---|
+| `mcp-wire` | Generic MCP discovery and shell calls. | This repository. |
+| `figma-wire` | Figma connection, repair, and shell fallback. | [figma-wire repository](https://github.com/adhamhaithameid/figma-wire). |
+| `figma-design` | Design packets, screenshots, and available variables. | figma-wire repository. |
+| `figma-code` | Implementation with existing project components and tokens. | figma-wire repository. |
+| `figma-verify` | Visual comparison and behavior verification. | figma-wire repository. |
+| `figma-pages` | Page and frame inventory through metadata. | figma-wire repository. |
+
+Each distributed skill includes its required engine and helpers.
+App repositories stay independent. Future Notion, Jira, or other integrations use the same repository pattern.
+The family contains reviewed snapshots instead of runtime imports from sibling checkouts.
+
+## Figma workflow
+
+```bash
+bash skills/figma-wire/scripts/figma-wire.sh doctor
+bash skills/figma-wire/scripts/figma-wire.sh tools --json
+bash skills/figma-wire/scripts/figma-wire.sh design '123:456' ./design-packet
+bash skills/figma-wire/scripts/figma-wire.sh diff '123:456' http://localhost:3000 --viewport 1440x900 --out ./review
+```
+
+Use an actual node ID from your design. Local calls require the target file in Figma desktop.
+Visual capture additionally requires ImageMagick 7 and Playwright with its browser.
+The engine and ordinary MCP calls do not require those visual dependencies.
+
+Read the [complete example](examples/figma/README.md) and [visual verification guide](docs/visual-verification.md).
+Use saved-image comparison in CI when the runner cannot reach a desktop Figma session.
+
+## What this adds to the official Figma MCP server
+
+The official server supplies design capabilities. This family provides access and workflow helpers around that server.
+
+| Capability | Official server | Wire family |
+|---|---|---|
+| Design context, screenshots, and available variables | Provides tools. | Discovers and calls the real tools. |
+| Native agent integration | Depends on the harness. | Prefers working native tools. |
+| Shell fallback | Needs a client. | Bundled Bash client for HTTP and stdio. |
+| Connection repair | Harness configuration remains separate. | Figma adapters with probe-before-write behavior. |
+| Review artifacts | Supplies design data. | Design packets, image comparison, JSON reports, and focused skills. |
+
+Tool availability depends on the connected server and account.
+The family does not replace Figma, grant account access, or bypass plan restrictions.
+
+## Build another app
+
+```bash
+bash engine/mcp-wire.sh skill new my-app "$SERVER_URL" ../my-app-wire
+```
+
+The generator creates a separate, private scaffold with discovered schemas, an engine copy, and offline checks.
+Add real app workflows and authentication tests before publication.
+Read the [app guide](docs/new-app.md) and [architecture](ARCHITECTURE.md).
 
 ## Development
 
 ```bash
-bash engine/tests/run-tests.sh                    # engine suite (fake MCP server)
-cd skills/figma-wire && bash tests/run-tests.sh   # skill suite (fake Dev Mode server)
+bash tests/run-tests.sh
+bash scripts/check-family.sh
 ```
 
-Both are hermetic — no MCP server, no Figma, no network required. CI runs them on
-Ubuntu and macOS.
+Fake servers keep the suites offline. Node.js is a test dependency.
+CI declares Ubuntu and macOS jobs. Native Windows support and universal live harness compatibility remain unverified.
+Use WSL for the Linux engine path on Windows.
 
-## Contributing
+Read [engine documentation](engine/README.md), [security rules](SECURITY.md), and [contribution rules](CONTRIBUTING.md).
+Bash, Zsh, and Fish completion files live in `completions/` and the Figma app folder.
+For Bash from this checkout, use `source completions/mcp-wire.bash`.
 
-Pick up a [good first issue](https://github.com/adhamhaithameid/mcp-wire/issues?q=is%3Aissue+label%3A%22good+first+issue%22)
-or bring a new `x-wire` skill idea — new skills are folders that follow the figma-wire
-shape, and the engine does the heavy lifting.
+## Current limits
 
-## Support
+The engine supports one-shot Streamable HTTP and newline-delimited stdio.
+It does not provide OAuth login, legacy SSE endpoints, stream resume, subscriptions, or interactive server callbacks.
+Models without shell access or native tools cannot execute the skills.
+The app generator provides a starting connector, not a finished integration for every service.
 
-If mcp-wire saved you from writing an MCP client, a coffee is appreciated ☕
+MIT license. See [LICENSE](LICENSE).
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-adhamhaithameid-yellow?logo=buymeacoffee)](https://www.buymeacoffee.com/adhamhaithameid)
+## Experimental
 
-## License
+- gen-tokens.sh: flat variables only; aliases/multi-mode EXPERIMENTAL.
+- figma-verify action: basic pixel diff; sticky PR comment/baseline EXPERIMENTAL.
 
-[MIT](LICENSE) © Adham Haitham
+## Install matrix
+
+- npx (planned)
+- curl
+- Homebrew (formula in packaging/homebrew/)
+
+## Compatibility matrix
+
+| Harness | OS | Transport |
+|---|---|---|
+| Claude Code | macOS/Linux | HTTP/stdio |
+| Cursor | macOS/Linux | HTTP |
+
+## Limitations
+
+- No OAuth yet (EXPERIMENTAL)
+- No stdio registration from tool output
+- macOS/Linux only
+
+## Why not just the official Figma MCP server?
+
+This adds: works without MCP client support, verification gate, repair across harnesses, secrets hygiene, named servers.
+
+## Runtime requirements
+
+bash, curl, jq, base64, and standard POSIX utilities (tr, head, env, sleep). pgrep/pkill for stdio cleanup.

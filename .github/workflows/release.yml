@@ -12,13 +12,15 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Verify reviewed family snapshot
+        run: bash scripts/check-family.sh
       - name: Engine tests (hermetic, offline)
         run: bash engine/tests/run-tests.sh
 
@@ -30,6 +32,12 @@ jobs:
         run: bash tests/e2e.sh
         working-directory: skills/figma-wire
 
+      - name: Family domain checks
+        run: cd skills/figma-wire && bash tests/test-domains.sh
+
+      - name: Verify extracted npm artifacts
+        run: bash tests/test-package.sh
+
       # One-time setup (npmjs.com): mcp-wire package Settings -> Trusted Publisher
       # -> repo adhamhaithameid/mcp-wire, workflow release.yml.
       # Fallback: `gh secret set NPM_TOKEN` with a granular token, then uncomment:
@@ -37,17 +45,23 @@ jobs:
         run: |
           PKG=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          if npm view "$PKG@$VERSION" version > /dev/null 2>&1; then
+          if npm view "$PKG@$VERSION" version > /dev/null 2> registry-error.log; then
             echo "$PKG@$VERSION already on the registry — skipping publish"
-          else
+          elif grep -q 'E404' registry-error.log; then
+            rm -f registry-error.log
             npm publish --access public
+          else
+            echo "Registry lookup failed; publication stopped."
+            rm -f registry-error.log
+            exit 1
           fi
+          rm -f registry-error.log
         env:
           NPM_CONFIG_PROVENANCE: true
         # env:
         #   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: GitHub Release with generated notes
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           generate-notes: true

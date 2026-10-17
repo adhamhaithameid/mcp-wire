@@ -1,0 +1,26 @@
+name: Figma image comparison
+description: Compare saved design and implementation images without live credentials.
+inputs:
+  reference:
+    description: Reference PNG path
+    required: true
+  actual:
+    description: Implementation PNG path
+    required: true
+  threshold:
+    description: Maximum mismatched pixel percentage
+    default: '5'
+  output:
+    description: Output prefix for JSON and image artifacts
+    default: visual-review
+runs:
+  using: composite
+  steps:
+    - name: Compare images
+      shell: bash
+      env:
+        REFERENCE: ${{ inputs.reference }}
+        ACTUAL: ${{ inputs.actual }}
+        THRESHOLD: ${{ inputs.threshold }}
+        OUTPUT_PREFIX: ${{ inputs.output }}
+      run: bash "$GITHUB_ACTION_PATH/../../../skills/figma-wire/scripts/figma-compare.sh" "$REFERENCE" "$ACTUAL" --threshold "$THRESHOLD" --out "$OUTPUT_PREFIX" --json

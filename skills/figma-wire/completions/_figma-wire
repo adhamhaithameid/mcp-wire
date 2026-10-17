@@ -1,0 +1,2 @@
+#compdef figma-wire
+_arguments '*:command or flag:(doctor use link call tools describe resources prompts design tokens compare diff remote fetch status config install-skill version --json --fix --remote --harness --viewport --threshold --full-page --wait --resize --out)'

@@ -1,9 +1,16 @@
 name: ci
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [main]
   pull_request:
+
+permissions:
+  contents: read
 
 jobs:
   engine:
@@ -12,11 +19,13 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
-      - name: Engine tests (hermetic, offline)
+      - name: Reviewed family snapshot
+        run: bash scripts/check-family.sh
+      - name: Engine and family tests (hermetic, offline)
         run: bash engine/tests/run-tests.sh
 
   figma-wire:
@@ -25,8 +34,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Unit tests (hermetic, offline)
@@ -35,3 +44,58 @@ jobs:
       - name: Installer e2e (sandboxed HOME)
         run: bash tests/e2e.sh
         working-directory: skills/figma-wire
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: shellcheck -S warning engine/mcp-wire.sh scripts/*.sh
+      - name: Version consistency
+        run: |
+          EV=$(grep '^VERSION=' engine/mcp-wire.sh | cut -d'"' -f2)
+          PV=$(jq -r .version package.json)
+          test "$EV" = "$PV" || { echo "version mismatch: engine=$EV package=$PV"; exit 1; }
+      - name: Sync check
+        run: bash scripts/sync-engine.sh --check skills/mcp-wire
+
+  jq16:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install jq 1.6
+        run: |
+          curl -fsSL -o /tmp/jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
+          echo "af986793a515d500ab2d35f8d2aecd656e764504b789b66d7e1a0b727a124c44  /tmp/jq" | sha256sum -c -
+          chmod +x /tmp/jq
+          sudo mv /tmp/jq /usr/local/bin/jq
+      - name: Run engine tests
+        run: bash engine/tests/run-tests.sh
+
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Run actionlint
+        run: |
+          if curl -fsSL -o /tmp/actionlint.tar.gz https://github.com/rhysd/actionlint/releases/latest/download/actionlint_linux_amd64.tar.gz 2>/dev/null; then
+            tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+            /tmp/actionlint .github/workflows/*.yml
+          else
+            echo "actionlint download skipped"
+          fi
+
+  release-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: bash scripts/check-family.sh
+      - run: bash engine/tests/run-tests.sh
+      - run: SKIP_NETWORK_TESTS=1 bash tests/run-tests.sh
+        working-directory: skills/figma-wire
+      - run: bash tests/e2e.sh
+        working-directory: skills/figma-wire
+      - run: bash tests/test-package.sh

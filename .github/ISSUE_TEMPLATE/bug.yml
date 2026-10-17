@@ -1,0 +1,16 @@
+name: Bug report
+description: Report a reproducible engine or skill failure.
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Engine or app version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction and expected result
+      description: Include the OS, harness, command, and safe diagnostic output. Remove tokens and private server content.
+    validations:
+      required: true
