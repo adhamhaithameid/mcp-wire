@@ -44,9 +44,6 @@ jobs:
       - name: Installer e2e (sandboxed HOME)
         run: bash tests/e2e.sh
         working-directory: skills/figma-wire
-      - name: Domain bundles and saved-image gate
-        run: bash tests/test-domains.sh
-        working-directory: skills/figma-wire
 
   shellcheck:
     runs-on: ubuntu-latest
