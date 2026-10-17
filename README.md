@@ -110,3 +110,26 @@ MIT license. See [LICENSE](LICENSE).
 
 - gen-tokens.sh: flat variables only; aliases/multi-mode EXPERIMENTAL.
 - figma-verify action: basic pixel diff; sticky PR comment/baseline EXPERIMENTAL.
+
+## Install matrix
+
+- npx (planned)
+- curl
+- Homebrew (formula in packaging/homebrew/)
+
+## Compatibility matrix
+
+| Harness | OS | Transport |
+|---|---|---|
+| Claude Code | macOS/Linux | HTTP/stdio |
+| Cursor | macOS/Linux | HTTP |
+
+## Limitations
+
+- No OAuth yet (EXPERIMENTAL)
+- No stdio registration from tool output
+- macOS/Linux only
+
+## Why not just the official Figma MCP server?
+
+This adds: works without MCP client support, verification gate, repair across harnesses, secrets hygiene, named servers.

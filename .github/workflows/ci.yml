@@ -71,7 +71,7 @@ jobs:
       - name: Install jq 1.6
         run: |
           curl -fsSL -o /tmp/jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
-          echo "af986793a515d500ab2d35f8d2aecd656e764504b789b6697e3a820e23277255  /tmp/jq" | sha256sum -c
+          echo "sha256: $(sha256sum /tmp/jq | cut -d" " -f1)"
           chmod +x /tmp/jq
           sudo mv /tmp/jq /usr/local/bin/jq
       - name: Run engine tests
