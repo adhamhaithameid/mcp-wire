@@ -1,6 +1,6 @@
 {
   "name": "@adhamhaithameid/mcp-wire",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "One bash engine that speaks MCP, plus the agent skills built on it \u2014 figma-wire (your AI agent finally sees your Figma designs) and every upcoming x-wire skill. Install once, get both CLIs and all skills.",
   "license": "MIT",
   "author": "Adham Haitham <adhamhaithameid@users.noreply.github.com>",

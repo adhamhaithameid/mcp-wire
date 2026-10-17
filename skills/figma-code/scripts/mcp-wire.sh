@@ -11,7 +11,7 @@
 #
 # Origin: extracted from figma-wire (https://github.com/adhamhaithameid/mcp-wire).
 set -u -o pipefail
-VERSION="1.1.0"
+VERSION="1.2.0"
 PROTOCOL="${MCP_WIRE_PROTOCOL_VERSION:-2025-11-25}"
 BAD_PREFIX='[FAIL]'
 if [ -t 2 ] && [ -z "${NO_COLOR:-}" ]; then RED=$'\033[31m'; RESET=$'\033[0m'; else RED=''; RESET=''; fi
