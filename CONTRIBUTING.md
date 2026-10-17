@@ -1,17 +1,13 @@
 # Contributing
 
-Keep the engine in mcp-wire and app behavior in its own repository. Read `ARCHITECTURE.md` before synchronization changes.
+Run tests:
+```
+bash engine/tests/run-tests.sh
+```
 
-Run `bash tests/run-tests.sh` for offline family checks. Node.js is required for fake servers.
-Add a fake-server regression check for each feature or protocol correction.
-Keep tests independent of live credentials, Figma desktop, and the public network.
+Portability rules:
+- Bash 3.2: no associative arrays, mapfile, ${var^^}; guard empty arrays with ${arr[@]+"${arr[@]}"}
+- jq 1.6: always include else in if; avoid 1.7-only builtins
+- curl 7.55+
 
-Use existing CLI flags and output by default. Document a deprecation path for any incompatible change.
-Keep runtime dependencies outside Bash, curl, and jq optional for the engine.
-Never log credentials. Treat all server output as untrusted data.
-
-Each PR covers one reviewable behavior. Explain the problem, change, exact verification commands, and documentation changes.
-Add an Unreleased changelog entry. Review both app source and family snapshots when the change affects an app.
-
-For a family update, run the app packaging script, synchronize its source, then update and verify the family lock.
-Do not fetch unreviewed app code during publication.
+Add a skill by copying and updating; run sync-engine.sh to vendor the engine.

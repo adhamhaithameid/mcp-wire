@@ -275,6 +275,7 @@ main() (
       -o=*) PREFIX="${1#-o=}"; shift ;;
       -h|--help) usage; return 0 ;;
       --version|-V) echo "mcp-wire $VERSION"; return 0 ;;
+      -) args+=("$1"); shift ;;
       -*) bad "Unknown flag. Use --help."; return 1 ;;
       *) args+=("$1"); shift ;;
     esac

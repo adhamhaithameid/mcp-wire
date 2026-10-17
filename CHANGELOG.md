@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is se
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-17
+
+### Added
+- Stateless servers, JSON replies, id matching, auth on notification.
+- describe, --json, stdin/@file args.
+- Named servers (@name) and servers subcommand.
+- doctor command.
+- Secrets hygiene via header files.
+
 ### Added
 
 - Add stdio, stateless JSON responses, paginated discovery, schemas, resources, prompts, named server profiles, JSON output, and redacted previews.
