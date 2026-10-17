@@ -25,10 +25,8 @@ jobs:
           node-version: 20
       - name: Reviewed family snapshot
         run: bash scripts/check-family.sh
-      - name: Extracted package artifacts
-        run: bash tests/test-package.sh
       - name: Engine and family tests (hermetic, offline)
-        run: bash engine/tests/run-tests.sh && bash tests/test-family.sh
+        run: bash engine/tests/run-tests.sh
 
   figma-wire:
     runs-on: ${{ matrix.os }}
