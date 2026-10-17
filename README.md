@@ -105,3 +105,8 @@ Models without shell access or native tools cannot execute the skills.
 The app generator provides a starting connector, not a finished integration for every service.
 
 MIT license. See [LICENSE](LICENSE).
+
+## Experimental
+
+- gen-tokens.sh: flat variables only; aliases/multi-mode EXPERIMENTAL.
+- figma-verify action: basic pixel diff; sticky PR comment/baseline EXPERIMENTAL.
