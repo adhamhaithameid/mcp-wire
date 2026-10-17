@@ -1,0 +1,20 @@
+name: contract
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+concurrency:
+  group: contract
+  cancel-in-progress: true
+jobs:
+  figma:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Smoke test
+        env:
+          FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}
+        run: |
+          if [ -z "$FIGMA_TOKEN" ]; then echo "skipped: no secret"; exit 0; fi
+          printf '{"servers":{"figma":{"url":"https://mcp.figma.com/mcp","headers":["Authorization: Bearer ${FIGMA_TOKEN}"]}}}' > /tmp/s.json
+          MCP_WIRE_CONFIG=/tmp/s.json FIGMA_TOKEN="$FIGMA_TOKEN" bash engine/mcp-wire.sh @figma list
