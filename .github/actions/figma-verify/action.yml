@@ -1,15 +1,14 @@
 name: Figma Verify
 inputs:
-  page-url:
-    required: true
-  node-id:
-    required: true
-  tolerance:
-    default: "5"
+  page-url: { required: true }
+  node-id: { required: true }
+  tolerance: { default: "5" }
 runs:
   using: composite
   steps:
-    - name: Run diff
+    - run: ${{ github.action_path }}/run.sh
       shell: bash
-      run: |
-        echo "figma-verify placeholder: compare ${{ inputs.node-id }} vs ${{ inputs.page-url }} tolerance ${{ inputs.tolerance }}"
+      env:
+        INPUT_PAGE_URL: ${{ inputs.page-url }}
+        INPUT_NODE_ID: ${{ inputs.node-id }}
+        INPUT_TOLERANCE: ${{ inputs.tolerance }}
