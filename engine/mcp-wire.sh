@@ -11,7 +11,7 @@
 #
 # Origin: extracted from figma-wire (https://github.com/adhamhaithameid/mcp-wire).
 set -u -o pipefail
-VERSION="0.2.0"
+VERSION="1.1.0"
 PROTOCOL="${MCP_WIRE_PROTOCOL_VERSION:-2025-11-25}"
 BAD_PREFIX='[FAIL]'
 bad() { printf '%s %s\n' "$BAD_PREFIX" "$*" >&2; }
