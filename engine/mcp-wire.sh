@@ -152,7 +152,7 @@ connect() {
     mkfifo "$WORK/in" "$WORK/out" || return 1
     # Open both ends before launch to avoid FIFO-open deadlocks on Bash 3.2.
     exec 3<>"$WORK/in" 4<>"$WORK/out"
-    "${command[@]}" <"$WORK/in" >"$WORK/out" 2>"$WORK/server.log" &
+    env -i PATH="${PATH:-}" HOME="${HOME:-}" TMPDIR="${TMPDIR:-}" LANG="${LANG:-}" "${command[@]}" <"$WORK/in" >"$WORK/out" 2>"$WORK/server.log" &
     SERVER_PID=$!
     stdio_send "$init" || return 1
     data=$(stdio_receive 1) || return 1
@@ -251,7 +251,7 @@ emit_result() { # emit_result <data-line> <out-prefix>
 main() (
   local HEADERS=() SESSION_HEADERS=() args=() URL='' STDIO='' TIMEOUT=90 JSON_OUT=0 DRY_RUN=0 ALLOW_HTTP=0 PREFIX='' SESSION_ID='' TRANSPORT='session' REPLY='sse'
   local CONFIG="${MCP_WIRE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/mcp-wire/servers.json}" WORK='' SERVER_PID=''
-  cleanup() { if [ -n "${SERVER_PID:-}" ]; then kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; fi; if [ -n "${SESSION_ID:-}" ] && [ -n "${URL:-}" ]; then curl -q -sS --max-time 2 -X DELETE "$URL" -H "Mcp-Session-Id: $SESSION_ID" >/dev/null 2>&1 || true; fi; [ -z "${WORK:-}" ] || rm -rf "$WORK"; }
+  cleanup() { if [ -n "${SERVER_PID:-}" ]; then pkill -P "$SERVER_PID" 2>/dev/null; kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; fi; if [ -n "${SESSION_ID:-}" ] && [ -n "${URL:-}" ]; then curl -q -sS --max-time 2 -X DELETE "$URL" -H "Mcp-Session-Id: $SESSION_ID" >/dev/null 2>&1 || true; fi; [ -z "${WORK:-}" ] || rm -rf "$WORK"; }
   trap cleanup EXIT INT TERM
   while [ $# -gt 0 ]; do
     case "$1" in

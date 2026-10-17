@@ -113,6 +113,105 @@ rm -f "$STDIO_CRASH"
 t "hostile output printed verbatim" bash "$MC" "$URL" call hostile --allow-http
 grep -q 'ignore previous instructions' "$TMP/o" && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: hostile text not printed"; }
 
+# --- stdio hardening scenarios ---
+# normal call
+STDIO_NORM="$(mktemp)"
+cat > "$STDIO_NORM" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  else if (m.method === 'tools/list') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{tools:[{name:'echo',description:'e',inputSchema:{type:'object'}}]}}));
+  else if (m.method === 'tools/call') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{content:[{type:'text',text:'ok'}]}}));
+});
+NODE
+t "stdio normal call" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_NORM" '["node",$p]')" call echo '{"x":1}' --json --timeout 3
+a "stdio normal result" jq -e '.content[0].text=="ok"' "$TMP/o"
+
+# crash mid-call
+STDIO_CRASH="$(mktemp)"
+cat > "$STDIO_CRASH" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  else process.exit(1);
+});
+NODE
+tfail "stdio crash mid-call" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_CRASH" '["node",$p]')" list --timeout 3
+
+# hang + timeout
+STDIO_HANG="$(mktemp)"
+cat > "$STDIO_HANG" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  // never respond to tools/list
+});
+NODE
+tfail "stdio hang timeout" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_HANG" '["node",$p]')" list --timeout 1
+
+# stderr isolation
+STDIO_ERR="$(mktemp)"
+cat > "$STDIO_ERR" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') { process.stderr.write('noise\n'); console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}})); }
+  else if (m.method === 'tools/list') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{tools:[]}}));
+});
+NODE
+t "stdio stderr isolated" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_ERR" '["node",$p]')" list --json --timeout 3
+a "stdio stderr json valid" jq -e 'type=="object"' "$TMP/o"
+
+# exit before initialize
+STDIO_EARLY="$(mktemp)"
+printf '#!/usr/bin/env node
+process.exit(0)
+' > "$STDIO_EARLY"
+chmod +x "$STDIO_EARLY"
+tfail "stdio early exit" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_EARLY" '["node",$p]')" list --timeout 2
+
+# oversized output
+STDIO_BIG="$(mktemp)"
+cat > "$STDIO_BIG" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  else if (m.method === 'tools/list') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{tools:[{name:'big',description:'x'.repeat(100000),inputSchema:{type:'object'}}]}}));
+});
+NODE
+t "stdio oversized" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_BIG" '["node",$p]')" list --json --timeout 5
+
+# env sanitization
+STDIO_ENV="$(mktemp)"
+cat > "$STDIO_ENV" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  else if (m.method === 'tools/list') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{tools:[{name: process.env.SENTINEL_SECRET ? 'LEAKED' : 'clean',description:'e',inputSchema:{type:'object'}}]}}));
+});
+NODE
+SENTINEL_SECRET=supersecret t "stdio env sanitized" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_ENV" '["node",$p]')" list --json --timeout 3
+a "stdio no leak" jq -e '.tools[0].name=="clean"' "$TMP/o"
+
+# metacharacters not shell-interpreted
+STDIO_META="$(mktemp)"
+cat > "$STDIO_META" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  else if (m.method === 'tools/list') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{tools:[]}}));
+});
+NODE
+t "stdio metachars" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_META" '["node",$p,"; rm -rf /"]')" list --json --timeout 3
+
+rm -f "$STDIO_NORM" "$STDIO_CRASH" "$STDIO_HANG" "$STDIO_ERR" "$STDIO_EARLY" "$STDIO_BIG" "$STDIO_ENV" "$STDIO_META"
+
 echo "== results: ${PASS} passed, ${FAIL} failed =="
 [ "$FAIL" -eq 0 ]
 
