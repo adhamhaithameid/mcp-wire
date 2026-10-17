@@ -33,7 +33,7 @@
     "scripts/gen-tokens.sh": "2f744b87b89092e68ac98237573236440258e845462cd91f18d599b401ec52ab",
     "scripts/install-skills.sh": "1172607da0c0d5720df20cdf87c3d8540ca6f7067131bf32377c6f33709d65f6",
     "scripts/lint-skills.sh": "2613de7163ca9c2762600839ffb5bdbfc9284d92eccdff77747ffc94574fc44a",
-    "scripts/lock-family.sh": "c6305c623cae9690c96fa2b107aa5c06d0ad1a7e83e1ddd7c9f15375c9a70a22",
+    "scripts/lock-family.sh": "9c9c127b71b85198c1c4c52df4ee2c464e1dd8decd3e46d5c596440800f34a8d",
     "scripts/new-app.sh": "c355322b497fffd0fea03d309ebfb2839b3af24c80f156d04056482ac0f25ffd",
     "scripts/sync-engine.sh": "c8cce686a9e65d71c6e0e1bd31c2c2d4f72b43a9dc2943bbe3783df26611e2f8",
     "scripts/sync-skills.sh": "62f1a1fd54895ebd633d61104c636cd1c39549e1b675ab450c5e5977d8280801",
