@@ -109,6 +109,10 @@ NODE
 tfail "stdio crash handled" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_CRASH" '["node",$p]')" list --timeout 3
 rm -f "$STDIO_CRASH"
 
+# --- prompt injection test ---
+t "hostile output printed verbatim" bash "$MC" "$URL" call hostile --allow-http
+grep -q 'ignore previous instructions' "$TMP/o" && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: hostile text not printed"; }
+
 echo "== results: ${PASS} passed, ${FAIL} failed =="
 [ "$FAIL" -eq 0 ]
 
