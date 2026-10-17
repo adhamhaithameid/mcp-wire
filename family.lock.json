@@ -18,7 +18,7 @@
     ]
   },
   "files": {
-    "engine/README.md": "cb225dc8c484ff51c06081bcea56feb22149cd1731a7da15a72ec727a7282721",
+    "engine/README.md": "8d4c229339c0b3e4ae208a2cc95e55f8918d111d33e7f76b95fe42eb1668d2a3",
     "engine/mcp-wire.sh": "0c84dba2a9abefeb1b5b71a79d3a2ebca7560c5eece9d4573639c93d9c08d2df",
     "engine/tests/fake-server.js": "d6d5c7367347e92c1343f1ccf4184eb71ad16c2b0e32d8fc9cf4eb7275deea03",
     "engine/tests/run-tests.sh": "cd4266209ec5994934b4c0948876491bade4e11f29e205c68f5f6c8d154d6cdd",
@@ -153,7 +153,7 @@
     "skills/figma-wire/tests/run-tests.sh": "dfd3738fbce1dffcb5c0751804cd228519576d8add54c06d790fd79a3812d7e1",
     "skills/figma-wire/tests/test-domains.sh": "66f906f56a6ae7725266f1200dfc42190bb85ef2b1d062dd7d6b51cba88c97cd",
     "skills/figma-wire/tests/test-install.sh": "393d3738c10359bfc3a4ef95a68cf46bbd0a03ebb9f39c28dcfeb300f937d2a3",
-    "skills/figma-wire/tests/test-minimal-install.sh": "6e7108f4d1900421bbc1fac1f9fde3d41eba9d764a5144d46151696f9dffcb7b",
+    "skills/figma-wire/tests/test-minimal-install.sh": "a5627668722c0fb5d04174836fd90f55c52501dba36091e5cb3db585e9a81a43",
     "skills/mcp-wire/LICENSE": "7437e0b3a7ffe957ef254702797df44d10e5ded3ce39e8acbd956bdf12df5b0c",
     "skills/mcp-wire/SKILL.md": "46af06be0fcb05fdd55f8afb73617f438b1aeb3166b89b25fe1a1b303e16574d",
     "skills/mcp-wire/scripts/install-skills.sh": "1172607da0c0d5720df20cdf87c3d8540ca6f7067131bf32377c6f33709d65f6",
