@@ -14,8 +14,10 @@ set -u -o pipefail
 VERSION="1.1.0"
 PROTOCOL="${MCP_WIRE_PROTOCOL_VERSION:-2025-11-25}"
 BAD_PREFIX='[FAIL]'
-bad() { printf '%s %s\n' "$BAD_PREFIX" "$*" >&2; }
-ok() { printf '[ ok ] %s\n' "$*"; }
+if [ -t 2 ] && [ -z "${NO_COLOR:-}" ]; then RED=$'\033[31m'; RESET=$'\033[0m'; else RED=''; RESET=''; fi
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then GREEN=$'\033[32m'; RESETOUT=$'\033[0m'; else GREEN=''; RESETOUT=''; fi
+bad() { printf '%s%s %s%s\n' "$RED" "$BAD_PREFIX" "$*" "$RESET" >&2; }
+ok() { printf '%s[ ok ]%s %s\n' "$GREEN" "$RESETOUT" "$*"; }
 b64decode() { case "$(uname -s)" in Darwin) base64 -D ;; *) base64 -d ;; esac; }
 usage() {
   cat <<'HELP'
@@ -49,34 +51,77 @@ HELP
 }
 
 # Select a matching response, not a progress notification or an unrelated event.
-parse_response() {
-  local file="$1" id="$2"
-  if jq -e 'type == "object"' "$file" >/dev/null 2>&1; then
-    cat "$file"
-  else
-    awk '
-      { sub(/\r$/, "") }
-      /^data:/ { line=substr($0,6); sub(/^ /,"",line); data=data line "\n"; next }
-      /^$/ { if (data != "") { printf "%s\n",data; data="" } }
-      END { if (data != "") printf "%s\n",data }
-    ' "$file"
-  fi | jq -esc --argjson id "$id" '[.[] | select(type == "object" and .id == $id and (has("result") or has("error")))] | last // empty' 2>/dev/null
+extract_response() { # extract_response <body-file> <request-id>
+  local file="$1" rid="$2" ctype
+  ctype=$(awk 'tolower($1)=="content-type:" {print tolower($2); exit}' "$WORK/headers" 2>/dev/null)
+  if [[ "$ctype" == *application/json* ]] || jq -e 'type=="object" or type=="array"' "$file" >/dev/null 2>&1; then
+    # JSON or batch
+    if jq -e 'type=="array"' "$file" >/dev/null 2>&1; then
+      jq -c --argjson id "$rid" '[.[] | select((.id // null) == $id and (has("result") or has("error")))] | last // empty' "$file" 2>/dev/null
+    else
+      # single object; if id matches use it else last with result/error
+      if jq -e --argjson id "$rid" '.id == $id and (has("result") or has("error"))' "$file" >/dev/null 2>&1; then
+        cat "$file"
+      else
+        # maybe body is one object without id match; return if has result/error
+        if jq -e 'has("result") or has("error")' "$file" >/dev/null 2>&1; then cat "$file"; else echo ''; fi
+      fi
+    fi
+    return
+  fi
+  # SSE: parse events
+  awk '
+    { sub(/\r$/, "") }
+    /^data:/ { line=substr($0,6); sub(/^ /,"",line); data=data line "\n"; next }
+    /^$/ { if (data != "") { printf "%s\n", data; data="" } }
+    END { if (data != "") printf "%s\n", data }
+  ' "$file" | jq -sc --argjson id "$rid" '
+    ([ .[] | select(type=="object") ] ) as $msgs |
+    ([$msgs[] | select((.id // null) == $id and (has("result") or has("error")))] | last) //
+    ([$msgs[] | select(has("result") or has("error"))] | last) //
+    empty
+  ' 2>/dev/null
 }
+
+parse_response() { extract_response "$1" "$2"; }
 
 http_post() {
   local body="$1" status
   status=$(curl -q -sS --proto '=http,https' --max-time "$TIMEOUT" -D "$WORK/headers" -o "$WORK/body" \
     -w '%{http_code}' -X POST "$URL" -H 'Content-Type: application/json' \
-    -H 'Accept: application/json, text/event-stream' "${HEADERS[@]+"${HEADERS[@]}"}" \
-    "${SESSION_HEADERS[@]+"${SESSION_HEADERS[@]}"}" --data-binary "$body" 2>/dev/null) || {
+    -H 'Accept: application/json, text/event-stream' -H @"$HEADERS_FILE" \
+    "${SESSION_HEADERS[@]+"${SESSION_HEADERS[@]}"}" --data-binary "$body" 2>"$WORK/curlerr") || {
       bad "Connection failed or timed out. Check the server and retry with --timeout 90."; return 1;
     }
+  # curl failure (empty status)
+  if [ -z "$status" ]; then
+    local cerr
+    cerr=$(cat "$WORK/curlerr" 2>/dev/null)
+    bad "Connection failed or timed out. $cerr Check the server and retry with --timeout 90."
+    return 1
+  fi
   case "$status" in
-    2??) return 0 ;;
-    401|403) bad "HTTP $status: authorization failed. Check the header environment variable or sign in with your harness." ;;
-    404) bad "HTTP 404: endpoint or session unavailable. Check the URL and start a new command." ;;
-    *) bad "HTTP $status: server request failed. Check the server health." ;;
+    2??) 
+      # detect non-MCP html
+      if grep -qi '^content-type:.*text/html' "$WORK/headers" 2>/dev/null; then
+        bad "HTTP $status: not a streamable-HTTP MCP endpoint (text/html). Check the URL path."
+        return 1
+      fi
+      return 0 ;;
+    401) bad "HTTP 401: authorization failed. Pass a token via --header 'Authorization: Bearer ...' or a named server with \${ENV_VAR}." ;;
+    403) bad "HTTP 403: forbidden. Check account permissions." ;;
+    404) bad "HTTP 404: endpoint or session unavailable. Check the URL path or start a new session." ;;
+    405|406) bad "HTTP $status: method or content type not allowed. Check the endpoint." ;;
+    429) bad "HTTP 429: rate limited. Retry later." ;;
+    5*) bad "HTTP $status: server error. Check server health." ;;
+    *) bad "HTTP $status: request failed." ;;
   esac
+  # try show JSON-RPC error message
+  if [ -s "$WORK/body" ]; then
+    local msg
+    msg=$(jq -r '.error.message // empty' "$WORK/body" 2>/dev/null)
+    [ -z "$msg" ] || bad "Server said: $msg"
+  fi
   return 1
 }
 
@@ -116,7 +161,8 @@ connect() {
     data=$(parse_response "$WORK/body" 1) || { bad "Invalid initialize response. Check that the URL serves MCP."; return 1; }
     local session
     session=$(awk 'tolower($1)=="mcp-session-id:" {sub(/\r$/, "", $2); print $2; exit}' "$WORK/headers")
-    [ -z "$session" ] || SESSION_HEADERS+=("-H" "Mcp-Session-Id: $session")
+    if [ -n "$session" ]; then SESSION_ID="$session"; SESSION_HEADERS+=("-H" "Mcp-Session-Id: $session"); TRANSPORT='session'; else TRANSPORT='stateless'; fi
+    if grep -qi '^content-type:.*application/json' "$WORK/headers"; then REPLY='json'; else REPLY='sse'; fi
   fi
   jq -e '.error' <<<"$data" >/dev/null 2>&1 && { bad "MCP initialization failed. Check server access and protocol support."; return 1; }
   version=$(jq -r '.result.protocolVersion // empty' <<<"$data")
@@ -160,7 +206,7 @@ request_all() {
     cursor=$(jq -r '.result.nextCursor // empty' <<<"$data")
     [ -n "$cursor" ] || break
     page=$((page+1))
-    if [ "$page" -ge 100 ] || jq -e --arg c "$cursor" 'index($c) != null' <<<"$seen" >/dev/null; then
+    if [ "$page" -ge 50 ] || jq -e --arg c "$cursor" 'index($c) != null' <<<"$seen" >/dev/null; then
       bad "Pagination did not finish. Narrow the server query or fix its cursor sequence."; return 1
     fi
     seen=$(jq -c --arg c "$cursor" '.+[$c]' <<<"$seen")
@@ -172,6 +218,7 @@ request_all() {
 emit_result() { # emit_result <data-line> <out-prefix>
   local data="$1" prefix="$2" img_n=0 saved='' item itype itext imgfile mime ext
   if jq -e '.result | has("content") and (.content|type)!="array"' <<<"$data" >/dev/null 2>&1; then bad "Invalid tool content array."; return 1; fi
+  if [ -n "$prefix" ]; then : > "${prefix}.txt"; fi
   if [ "$JSON_OUT" -eq 1 ]; then
     jq '.result' <<<"$data"
   else
@@ -202,9 +249,10 @@ emit_result() { # emit_result <data-line> <out-prefix>
 }
 
 main() (
-  local HEADERS=() SESSION_HEADERS=() args=() URL='' STDIO='' TIMEOUT=90 JSON_OUT=0 DRY_RUN=0 ALLOW_HTTP=0 PREFIX=''
+  local HEADERS=() SESSION_HEADERS=() args=() URL='' STDIO='' TIMEOUT=90 JSON_OUT=0 DRY_RUN=0 ALLOW_HTTP=0 PREFIX='' SESSION_ID='' TRANSPORT='session' REPLY='sse'
   local CONFIG="${MCP_WIRE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/mcp-wire/servers.json}" WORK='' SERVER_PID=''
-  trap 'if [ -n "$SERVER_PID" ]; then kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; fi; [ -z "$WORK" ] || rm -rf "$WORK"' EXIT
+  cleanup() { if [ -n "${SERVER_PID:-}" ]; then kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; fi; if [ -n "${SESSION_ID:-}" ] && [ -n "${URL:-}" ]; then curl -q -sS --max-time 2 -X DELETE "$URL" -H "Mcp-Session-Id: $SESSION_ID" >/dev/null 2>&1 || true; fi; [ -z "${WORK:-}" ] || rm -rf "$WORK"; }
+  trap cleanup EXIT INT TERM
   while [ $# -gt 0 ]; do
     case "$1" in
       --json) JSON_OUT=1; shift ;;
@@ -213,16 +261,16 @@ main() (
       --header|--header-env|--timeout|--config|--stdio|-o)
         [ $# -ge 2 ] && [ -n "$2" ] || { bad "Missing value for $1."; return 1; }
         case "$1" in
-          --header) HEADERS+=("-H" "$2") ;;
+          --header) HEADERS+=("$2") ;;
           --header-env)
             local hn="${2%%=*}" en="${2#*=}"
             [[ "$en" =~ ^[A-Za-z_][A-Za-z_0-9]*$ ]] && [[ "$hn" =~ ^[A-Za-z0-9-]+$ ]] || { bad "Use --header-env Header=ENV_NAME."; return 1; }
             [ -n "${!en:-}" ] || { bad "Required header environment variable is unset."; return 1; }
-            HEADERS+=("-H" "$hn: ${!en}") ;;
+            HEADERS+=("$hn: ${!en}") ;;
           --timeout) TIMEOUT="$2" ;; --config) CONFIG="$2" ;; --stdio) STDIO="$2" ;; -o) PREFIX="$2" ;;
         esac
         shift 2 ;;
-      --header=*) HEADERS+=("-H" "${1#--header=}"); shift ;;
+      --header=*) HEADERS+=("${1#--header=}"); shift ;;
       --timeout=*) TIMEOUT="${1#--timeout=}"; shift ;;
       -o=*) PREFIX="${1#-o=}"; shift ;;
       -h|--help) usage; return 0 ;;
@@ -236,21 +284,101 @@ main() (
   for dep in curl jq; do command -v "$dep" >/dev/null || { bad "Missing $dep. Install $dep and retry."; return 1; }; done
   local h
   for h in "${HEADERS[@]+"${HEADERS[@]}"}"; do [[ "$h" != *$'\n'* && "$h" != *$'\r'* ]] || { bad "Header values cannot contain line breaks."; return 1; }; done
-  local index header_name
-  for ((index=1; index<${#HEADERS[@]}; index+=2)); do
-    header_name="${HEADERS[index]%%:*}"
-    [[ "${HEADERS[index]}" == *:* && "$header_name" =~ ^[A-Za-z0-9-]+$ ]] || { bad "Use a header name and value; header files are not accepted."; return 1; }
+  local hname
+  for h in "${HEADERS[@]+"${HEADERS[@]}"}"; do
+    [[ "$h" != @* ]] || { bad "Header files are not accepted."; return 1; }
+    hname="${h%%:*}"
+    [[ "$h" == *:* && "$hname" =~ ^[A-Za-z0-9-]+$ ]] || { bad "Use a header name and value; header files are not accepted."; return 1; }
   done
+  # MCP_WIRE_HEADERS (newline-separated) into HEADERS.
+  if [ -n "${MCP_WIRE_HEADERS:-}" ]; then
+    while IFS= read -r _h; do
+      [ -n "$_h" ] && HEADERS+=("$_h")
+    done <<< "$MCP_WIRE_HEADERS"
+  fi
   set -- ${args[@]+"${args[@]}"}
   [ $# -gt 0 ] || { usage; return 1; }
   local cmd="$1" target='' doctor=0
   case "$cmd" in
     servers)
-      [ -f "$CONFIG" ] || { bad "No server registry. Create servers.json as documented in engine/README.md."; return 1; }
-      jq -e '.servers | to_entries | map({name:.key,transport:(if .value.command then "stdio" else "http" end)})' "$CONFIG"; return ;;
-    doctor) doctor=1; shift; if [ $# -eq 0 ]; then jq -n '{ok:true,dependencies:["bash","curl","jq"]}'; return; fi ;;
+      shift
+      local sub="${1:-list}"; [ $# -eq 0 ] || shift
+      case "$sub" in
+        path) printf '%s\n' "$CONFIG"; return 0 ;;
+        list)
+          if [ ! -f "$CONFIG" ]; then echo '[]'; return 0; fi
+          jq -e '.servers | to_entries | map({name:.key,transport:(if .value.command then "stdio" else "http" end)})' "$CONFIG"; return ;;
+        add)
+          local name="${1:-}" url="${2:-}"; shift 2 2>/dev/null || true
+          # parse flags
+          local allow_http=0 store_literal=0 headers=()
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --header) headers+=("$2"); shift 2 ;;
+              --allow-http) allow_http=1; shift ;;
+              --store-literal) store_literal=1; shift ;;
+              *) bad "Unknown flag $1"; return 1 ;;
+            esac
+          done
+          [[ "$name" =~ ^[A-Za-z0-9_.-]+$ ]] || { bad "Invalid server name."; return 1; }
+          case "$url" in http://*|https://*) : ;; *) bad "URL must start with http:// or https://."; return 1 ;; esac
+          # refuse literal credentials
+          local h hname hval
+          for h in "${headers[@]+"${headers[@]}"}"; do
+            hname="${h%%:*}"; hval="${h#*: }"
+            if [ "$store_literal" -eq 0 ]; then
+              if echo "$hname" | grep -qiE 'auth|token|key|secret|cookie|password'; then
+                if ! echo "$hval" | grep -q '\${'; then
+                  bad "Refusing literal credential in header '$hname'. Use \${ENV_VAR} form, or --store-literal."
+                  return 1
+                fi
+              fi
+            fi
+          done
+          # atomic write
+          local dir
+          dir=$(dirname "$CONFIG")
+          mkdir -p "$dir"; chmod 700 "$dir" 2>/dev/null || true
+          local tmpf
+          tmpf=$(mktemp "$dir/.servers.XXXXXX") || return 1
+          if [ -f "$CONFIG" ]; then cp "$CONFIG" "$tmpf.base"; else echo '{"servers":{}}' > "$tmpf.base"; fi
+          # build entry
+          local entry
+          entry=$(jq -nc --arg url "$url" --argjson ah "$allow_http" '{url:$url,allow_http:($ah==1)}')
+          if [ ${#headers[@]} -gt 0 ]; then
+            local hjson
+            hjson=$(printf '%s\n' "${headers[@]}" | jq -R . | jq -sc .)
+            entry=$(jq -c --argjson h "$hjson" '.headers=$h' <<<"$entry")
+          fi
+          jq --arg name "$name" --argjson entry "$entry" '.servers[$name]=$entry' "$tmpf.base" > "$tmpf"
+          chmod 600 "$tmpf"
+          mv "$tmpf" "$CONFIG"
+          rm -f "$tmpf.base"
+          if [ "$store_literal" -eq 1 ]; then echo "warning: stored literal credential" >&2; fi
+          ok "added $name"
+          return 0 ;;
+        rm)
+          local name="${1:-}"
+          [ -f "$CONFIG" ] || { bad "No registry."; return 1; }
+          jq --arg name "$name" 'del(.servers[$name])' "$CONFIG" > "$CONFIG.tmp" && mv "$CONFIG.tmp" "$CONFIG"
+          ok "removed $name"
+          return 0 ;;
+        *) bad "Use servers add|list|rm|path."; return 1 ;;
+      esac
+      return ;;
+    doctor) doctor=1; shift; if [ $# -eq 0 ]; then
+      # dependency report
+      local dok=1
+      command -v bash >/dev/null || dok=0
+      command -v curl >/dev/null || dok=0
+      command -v jq >/dev/null || dok=0
+      command -v base64 >/dev/null || dok=0
+      jq -n --argjson ok "$dok" '{ok:($ok==1),dependencies:["bash","curl","jq","base64"]}'
+      return
+    fi ;;
   esac
   if [ -z "$STDIO" ]; then target="$1"; shift; fi
+  case "$target" in @*) target="${target#@}";; esac
   if [ -n "$target" ]; then
     case "$target" in
       http://*|https://*) URL="$target" ;;
@@ -261,13 +389,29 @@ main() (
         jq -e '(.headerEnv // {}) | type == "object" and all(to_entries[]; (.value|type)=="string")' <<<"$entry" >/dev/null || { bad "headerEnv must map header names to environment variable names."; return 1; }
         URL=$(jq -r '.url // empty' <<<"$entry")
         STDIO=$(jq -c '.command // empty' <<<"$entry")
+        # allow_http honored
+        local allow_http
+        allow_http=$(jq -r '.allow_http // false' <<<"$entry")
+        [ "$allow_http" != true ] || ALLOW_HTTP=1
+        # headers array with ${VAR} expansion
+        local hline varname
+        while IFS= read -r hline; do
+          [ -n "$hline" ] || continue
+          # expand ${VAR}
+          while [[ "$hline" =~ \$\{([A-Za-z_][A-Za-z_0-9]*)\} ]]; do
+            varname="${BASH_REMATCH[1]}"
+            [ -n "${!varname:-}" ] || { bad "Required header environment variable is unset: $varname"; return 1; }
+            hline="${hline//\$\{$varname\}/${!varname}}"
+          done
+          HEADERS+=("$hline")
+        done < <(jq -r '.headers[]? // empty' <<<"$entry")
         local envname headername
         while IFS=$'\t' read -r headername envname; do
           [ -n "$headername" ] || continue
           [[ "$envname" =~ ^[A-Za-z_][A-Za-z_0-9]*$ ]] && [[ "$headername" =~ ^[A-Za-z0-9-]+$ ]] || { bad "Invalid headerEnv entry."; return 1; }
           [ -n "${!envname:-}" ] || { bad "Required header environment variable is unset."; return 1; }
           [[ "${!envname}" != *$'\r'* && "${!envname}" != *$'\n'* ]] || { bad "Header values cannot contain line breaks."; return 1; }
-          HEADERS+=("-H" "$headername: ${!envname}")
+          HEADERS+=("$headername: ${!envname}")
         done < <(jq -r '.headerEnv // {} | to_entries[] | [.key,.value] | @tsv' <<<"$entry") ;;
     esac
   fi
@@ -288,7 +432,15 @@ main() (
     list|describe) method=tools/list; key=tools; tool="${1:-}"; if [ "$cmd" = describe ] && [ -z "$tool" ]; then bad "describe requires a tool name."; return 1; fi ;;
     call)
       method=tools/call; tool="${1:-}"; [ -n "$tool" ] || { bad "call requires a tool name."; return 1; }; shift
-      [ $# -eq 0 ] || tool_args="$1"
+      if [ $# -gt 0 ]; then
+        case "$1" in
+          -) tool_args=$(cat); shift ;;
+          @*) 
+            [ -f "${1#@}" ] || { bad "File not found: ${1#@}"; return 1; }
+            tool_args=$(cat "${1#@}"); shift ;;
+          *) tool_args="$1"; shift ;;
+        esac
+      fi
       params=$(jq -nc --arg name "$tool" --argjson a "$tool_args" 'if ($a|type)=="object" then {name:$name,arguments:$a} else error("object required") end' 2>/dev/null) || { bad "Tool arguments must be a JSON object."; return 1; } ;;
     resources)
       case "${1:-list}" in
@@ -317,14 +469,44 @@ main() (
   fi
   umask 077
   WORK=$(mktemp -d) || return 1
+  HEADERS_FILE="$WORK/headers.txt"
+  : > "$HEADERS_FILE"
+  for _h in "${HEADERS[@]+"${HEADERS[@]}"}"; do printf '%s\n' "$_h" >> "$HEADERS_FILE"; done
+  chmod 600 "$HEADERS_FILE"
   connect || return 1
   data=$(request_all "$body" "$key") || return 1
   case "$cmd" in
-    doctor) jq -n '{ok:true,initialized:true,ping:true}' ;;
+    doctor) jq -n --arg t "$TRANSPORT" --arg r "$REPLY" '{ok:true,initialized:true,ping:true,transport:$t,reply:$r}' ;;
     describe)
-      data=$(jq -ec --arg t "$tool" '.result.tools[] | select(.name==$t)' <<<"$data") || { bad "Tool not found. Run list to discover available tools."; return 1; }
-      # The schema is authoritative; an empty object is not claimed as a valid example.
-      jq '{name,description,inputSchema,annotations}' <<<"$data" ;;
+      local tdata
+      tdata=$(jq -ec --arg t "$tool" '.result.tools[] | select(.name==$t)' <<<"$data") || {
+        bad "Tool not found. Available tools: $(jq -r '.result.tools[].name' <<<"$data" | head -20 | tr '\n' ' ')"
+        return 1
+      }
+      jq -r '.name' <<<"$tdata"
+      jq -r '.description // empty' <<<"$tdata"
+      echo 'arguments:'
+      local props
+      props=$(jq -c '.inputSchema.properties // {}' <<<"$tdata")
+      if [ "$(jq 'length' <<<"$props")" -eq 0 ]; then echo '  (none)'; else
+        jq -r --argjson req "$(jq -c '.inputSchema.required // []' <<<"$tdata")" '
+          def tstr: if type == "array" then (map(tostring)|join("|")) else tostring end;
+          to_entries[] |
+          "  " + .key + " (" + ((.value.type // "any") | tstr) + (if (.key as $k | $req | index($k)) then ", required" else "" end) + ") — " + (.value.description // "")
+        ' <<<"$props"
+      fi
+      echo 'example:'
+      jq -c --argjson req "$(jq -c '.inputSchema.required // []' <<<"$tdata")" --argjson props "$props" '
+        def placeholder($t):
+          if $t == "string" then "..."
+          elif ($t == "number" or $t == "integer") then 0
+          elif $t == "boolean" then false
+          elif $t == "array" then []
+          else {} end;
+        (reduce $req[] as $k ({}; .[$k] = placeholder((($props[$k].type // "string") | if type=="array" then (.[0] // "string") else . end)))) as $ex |
+        if ($req|length)==0 then "{}" else ($ex|tojson) end
+      ' -n
+      ;;
     list)
       if [ "$JSON_OUT" -eq 1 ]; then jq '.result' <<<"$data"
       else jq -r '.result.tools[] | .name+" :: "+((.description // "")[0:120])' <<<"$data"; fi ;;

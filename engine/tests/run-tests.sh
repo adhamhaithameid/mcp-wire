@@ -42,7 +42,7 @@ a "JSON list shape" jq -e '.tools | length == 2' "$TMP/o"
 t "paginated tools" bash "$MC" "$URL/pages" list --json --allow-http
 a "both pages returned" jq -e '.tools | length == 2' "$TMP/o"
 t "schema discovery" bash "$MC" "$URL" describe echo --allow-http
-a "schema preserved" jq -e '.inputSchema.properties.text.type == "string"' "$TMP/o"
+a "schema preserved" grep -q "text (string" "$TMP/o"
 tfail "unknown tool rejected" bash "$MC" "$URL" describe missing --allow-http
 t "authenticated initialization and notification" bash "$MC" "$URL/auth" list --header 'Authorization: Bearer fixture-secret' --allow-http
 tfail "auth rejected" bash "$MC" "$URL/auth" list --allow-http
