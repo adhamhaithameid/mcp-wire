@@ -3,6 +3,26 @@
 All notable changes to figma-wire are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versioning is semver.
 
+## [Unreleased]
+
+### Added
+
+- Add design, code, verification, and page skills with bundled runtime helpers.
+- Add live tool discovery, schemas, structured calls, resources, prompts, design packets, and flat variable exports.
+- Add saved-image comparison with JSON reports and a reusable GitHub Action.
+- Add completion files, source ownership documentation, security rules, and installation checks.
+
+### Fixed
+
+- Replace inline MCP calls with the shared mcp-wire engine.
+- Keep diagnostics offline by default and run remote checks only when requested.
+- Include engine and helper files in standalone and npm-discovered skills.
+- Keep installer command links inside the selected HOME and preserve matching source links.
+- Reject invalid comparison metrics, tool errors, invalid flags, and colliding token names.
+- Preserve restricted configuration permissions and avoid duplicate Codex header keys.
+- Clear stale node IDs after a new file link. Use REST personal access tokens and reject failed REST fetches.
+
+
 ## [1.4.1] — 2026-09-29
 
 ### Changed

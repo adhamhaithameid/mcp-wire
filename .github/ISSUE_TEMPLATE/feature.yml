@@ -1,0 +1,10 @@
+name: Workflow request
+description: Request an app workflow or engine capability.
+body:
+  - type: textarea
+    id: task
+    attributes:
+      label: User task and completion check
+      description: State the app, harness, current obstacle, and result you need. Do not include credentials.
+    validations:
+      required: true

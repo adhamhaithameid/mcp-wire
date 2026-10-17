@@ -1,185 +1,123 @@
-<div align="center">
-
 # figma-wire
 
-**Your AI agent finally sees your Figma designs.**
+Connect agents to Figma, collect reviewable design evidence, and verify implementations.
+This app owns its workflows in a separate repository. The [mcp-wire family](https://github.com/adhamhaithameid/mcp-wire) owns the shared engine.
 
-[![ci](https://github.com/adhamhaithameid/mcp-wire/actions/workflows/ci.yml/badge.svg)](https://github.com/adhamhaithameid/mcp-wire/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/figma-wire)](https://www.npmjs.com/package/figma-wire)
-[![license](https://img.shields.io/npm/l/figma-wire)](LICENSE)
-[![skills](https://img.shields.io/badge/skills-npx%20skills%20add-blue)](https://skills.sh)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-adhamhaithameid-yellow?logo=buymeacoffee)](https://www.buymeacoffee.com/adhamhaithameid)
+## Start from the checkout
 
-One bash script wires your AI coding agent to the Figma Dev Mode MCP server, repairs
-broken configs, and pulls design data from plain bash — no MCP client, no SDK, no API
-token.
-
-</div>
-
-> **figma-wire is the first skill in the [mcp-wire](https://github.com/adhamhaithameid/mcp-wire) family** — a universal
-> speak-MCP-from-plain-bash engine, shared across skills. The `call` and `diff`
-> commands run on it; engine improvements land in every skill in the family.
->
-> This repository is figma-wire's independent home. The family's other skills and the
-> shared engine live in the [mcp-wire monorepo](https://github.com/adhamhaithameid/mcp-wire);
-> the planned figma-* domain skills are mapped in [ROADMAP.md](ROADMAP.md).
-
----
-
-## Install
-
-**Using npm (Recommended)**
+The base runtime requires Bash, curl, and jq on macOS or Linux. Use WSL on Windows.
+Open the target file in Figma desktop and enable its MCP server for local calls.
 
 ```bash
-npm i -g figma-wire        # installs the `figma-wire` CLI (standalone skill)
-figma-wire doctor          # probes Figma + your agent's config in one shot
+bash scripts/figma-wire.sh doctor
+bash scripts/figma-wire.sh tools --json
+bash scripts/figma-wire.sh describe get_design_context
+bash scripts/figma-wire.sh call get_design_context '123:456' --json
+bash scripts/figma-wire.sh design '123:456' ./design-packet
 ```
 
-**The whole family in one install** — the mcp-wire engine CLI plus every family skill:
+Use an actual node ID from your design. Inspect schemas before remote calls; they can require a `fileKey`.
+Set `FIGMA_WIRE_SERVER` to an HTTPS endpoint or named engine profile for remote shell access.
+Use the harness's OAuth support when available. The engine does not implement OAuth login.
+
+## Install skills
 
 ```bash
-npm i -g @adhamhaithameid/mcp-wire
+bash install.sh
 ```
 
-**Using the skills CLI** (installs both family skills from the monorepo)
+The installer registers `figma-wire`, `figma-design`, `figma-code`, `figma-verify`, and `figma-pages` under `~/.agents/skills/`.
+Configure the harness's supported skill discovery mechanism. Restart the agent when its startup-loaded tools or skills change.
+For the family npm installation, `figma-wire install-skill` registers the same skills.
+The family package is the canonical npm distribution; this repository remains the Figma source owner.
 
-```bash
-npx skills add adhamhaithameid/mcp-wire
-```
+## Choose a workflow
 
-**Using skills-npm (auto-discovery from npm installs)**
-
-```bash
-npm i -D skills-npm
-npx skills-npm setup      # symlinks the bundled skill into supported agents
-```
-
-**Using the script**
-
-```bash
-git clone https://github.com/adhamhaithameid/figma-wire
-bash install.sh            # runs the full test suite first, then installs
-```
-
-Requires bash, curl, jq. macOS and Linux both work; on Windows, use WSL.
-
-## 30-second setup
-
-1. Open the **Figma desktop app** → **Preferences** → **Enable Dev Mode MCP Server**.
-2. Run `figma-wire doctor`. It finds the server, detects which agent you use, and wires
-   the config file — probing before it writes, never editing anything it hasn't verified.
-3. Restart your agent session.
-
-Bam — the Figma tools are in your agent's toolset.
-
-## Why figma-wire exists
-
-**Problem: your agent can't see the design.** It guesses the spacing, invents the
-colors, and ships something "close enough."
-**Fix:** figma-wire connects your agent to the real thing — structured design context,
-exact variables, and pixel screenshots, straight from Figma's own Dev Mode server
-already running on your machine.
-
-**Problem: MCP config is fiddly.** Eight agents, eight config formats, one server on a
-port that sometimes moves.
-**Fix:** `doctor` probes everything and writes the right file in the right shape;
-`doctor --fix` re-wires it when the port drifts. Every write is atomic — a corrupt
-config stays corrupt-free.
-
-**Problem: your harness has no MCP support.**
-**Fix:** the `call` command *is* an MCP client — full handshake, JSON-RPC, SSE parsing
-— in one bash script. It works from CI, cron jobs, and agents that have never heard
-of MCP.
-
-## What you get
-
-| Command | What it does |
+| Skill | Result |
 |---|---|
-| `figma-wire doctor` | Probes the Figma server, your harness config, and the remote server; prints the exact fix for whatever's wrong (`--json` for machines, `--fix` to auto-repair) |
-| `figma-wire use 3845` | Verifies a Dev Mode server, then wires it into your agent's config — probe-before-write, always |
-| `figma-wire link <share-url>` | Turns a Figma link into the `fileKey` + `nodeId` your tools need |
-| `figma-wire call get_screenshot "12:34" -o hero` | Runs any of Figma's 6 MCP tools from plain bash — images land as PNG |
-| `figma-wire diff "12:34" http://localhost:3000` | Screenshots the design and your implementation, pixel-diffs them, PASS or FAIL |
-| `figma-wire remote token <TOKEN>` / `remote off` | Authenticate — or permanently silence — the remote mcp.figma.com server |
-| `figma-wire fetch` | REST fallback for headless machines (needs a Figma token) |
+| `figma-wire` | Connection diagnosis, config repair, tool discovery, and shell fallback. |
+| `figma-design` | Context, screenshot, available metadata, available variables, and a source manifest. |
+| `figma-code` | Project-specific implementation with existing components and tokens. |
+| `figma-verify` | Visual comparison plus explicit behavior and accessibility checks. |
+| `figma-pages` | Page and frame inventory before focused extraction. |
 
-## `diff`: the 1:1 check, in one command
+Prefer working native tools. Do not rewrite configuration for ordinary design requests.
 
-The step every design-to-code workflow skips — "does the build actually match the
-design?" — becomes a command with an exit code you can gate CI on:
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `doctor [--json] [--fix] [--remote]` | Local diagnosis; optional repair and explicit remote connectivity check. |
+| `use <port|url>` | Probe before a requested configuration change. |
+| `link <share-url|fileKey>` | Record a design file and node. |
+| `tools [--json]` | Discover current tools. |
+| `describe <tool>` | Inspect its input schema. |
+| `call <tool> [nodeId|JSON] [--json] [-o prefix]` | Call through the bundled shared engine. |
+| `resources`, `prompts` | Access MCP resources or prompts when supported. |
+| `design <nodeId> <new-folder>` | Collect a design packet without changes to project code. |
+| `tokens <variables.json> <new-prefix>` | Export flat resolved variables to CSS and TypeScript. |
+| `diff <nodeId> <url>` | Capture and compare design and implementation. |
+| `compare <reference.png> <actual.png>` | Compare saved images and write a JSON report. |
+| `remote token <TOKEN>`, `remote off` | Legacy harness credential configuration and disable operation. |
+| `fetch [fileKey] [nodeId]` | Figma REST fallback with a REST personal access token. |
+| `status`, `config`, `version` | Local settings and status. |
+
+`--harness` selects zcode, claude, codex, cursor, windsurf, vscode, gemini, generic, or all existing configurations.
+Only use `all` for an intended multi-harness change.
+`FIGMA_WIRE_CONFIG`, `FIGMA_WIRE_STATE`, `FIGMA_WIRE_PORT`, and `FIGMA_WIRE_SCAN_PORTS` provide explicit path and port overrides.
+Remote checks stay opt-in so ordinary diagnostics and automated tests remain local.
+
+## Visual verification
+
+Visual capture additionally needs ImageMagick 7, Playwright, and its browser.
+These optional dependencies do not change the engine runtime.
 
 ```bash
-figma-wire diff "1838:2901" https://my-site.pages.dev --viewport 402x874 --threshold 5
+bash scripts/figma-wire.sh diff '123:456' http://localhost:3000 --viewport 1440x900 --threshold 5 --out ./review
+bash scripts/figma-wire.sh compare ./reference.png ./actual.png --threshold 5 --out ./review-ci --json
 ```
 
-```text
-figma : figma-diff-20260920-figma-1.png  (402x874)
-page  : figma-diff-20260920-page.png
-diff  : figma-diff-20260920-diff.png
-side  : figma-diff-20260920-side.png
-mismatched pixels: 285519/351348 (81.26%)
-[FAIL] 81.26% mismatched, exceeds the 5% threshold
-```
+The comparison writes a diff image, a side-by-side image, and a JSON report.
+It fails for excessive mismatch and distinguishes invalid input from a comparison error.
+Use matching frames, viewports, themes, and stable page states. Do not resize images to conceal layout errors.
+Pixel comparison does not prove behavior or accessibility.
+See [visual verification](docs/visual-verification.md) for CI and evidence limits.
 
-If the design frame and your viewport don't match, `diff` doesn't guess — it tells you
-the exact `--viewport` to use (or `--resize` force-fits). Red pixels in the diff mark
-every place your implementation drifts from the design.
+## What this adds to the official server
 
-## Works with your agent — and everyone else's
+The official Figma MCP server supplies design tools. figma-wire adds access and workflow helpers around those tools.
 
-| Harness | Status |
+| Official capability | Additional family behavior |
 |---|---|
-| ZCode, Claude Code, Cursor, Windsurf, Gemini CLI, VS Code, Codex | auto-detected, wired automatically |
-| Anything else (opencode, custom tools) | generic `~/.agents/mcp.json` adapter |
-| Agents with **no** MCP support at all | `call` — plain bash, no harness required |
+| Design context and screenshots | A reviewable packet and focused implementation workflow. |
+| Available variables | Flat-value CSS and TypeScript export with collision checks. |
+| Native MCP access | Shell fallback when native access is absent. |
+| Harness integration | Probe-before-write connection diagnosis and repair. |
+| Design reference | Saved-image gate with JSON reports and side-by-side artifacts. |
 
-`figma-wire use <port> --harness all` wires every installed harness at once.
+Discover capabilities on the actual server. Do not assume optional motion or mapping tools exist.
 
-## How it works (the honest 30 seconds)
+## Development and source ownership
 
-Figma's desktop app has shipped an MCP server since 2025 — `127.0.0.1:3845`, no auth,
-six tools (`get_design_context`, `get_screenshot`, `get_metadata`, `get_variable_defs`,
-`get_motion_context`, `get_figjam`). Almost nobody uses it, because every agent stores
-its config differently and nothing connects them. figma-wire is that connector: it
-**probes before it writes** (never edits a config unless the server answered), writes
-atomically, speaks the MCP protocol itself when your harness can't, and ships **100
-hermetic tests** (a fake Dev Mode server + sandboxed configs — runs on any machine,
-Figma not required, CI on Ubuntu and macOS).
+```bash
+SKIP_NETWORK_TESTS=1 bash tests/run-tests.sh
+bash tests/e2e.sh
+bash tests/test-domains.sh
+```
 
-Your designs never leave your machine. The local server needs no token, and figma-wire
-stores nothing beyond the last-used port.
+Node.js runs the fake servers for development checks. Figma and live credentials are not required for offline checks.
+Update the engine in mcp-wire, then copy it into this repository with the family synchronization script.
+Build domain bundles with `bash scripts/package-skills.sh`. Each Git-distributed domain skill also carries its runtime helpers.
+Read [architecture](ARCHITECTURE.md), [security](SECURITY.md), and [harness coverage](docs/harnesses.md).
 
-## FAQ
+Bash, Zsh, and Fish completions live in `completions/`.
+For Bash from this checkout, use `source completions/figma-wire.bash`.
+Completion tool names are suggestions; live discovery remains authoritative.
 
-**Do I need a Figma API token?** No — the local Dev Mode server needs none. A token is
-only for the optional remote `mcp.figma.com` server or the REST fallback.
+## Limits
 
-**My Figma tools disappeared after a Figma update.** The server probably moved ports.
-`figma-wire doctor` scans for it; `doctor --fix` re-wires every harness.
+Variable export accepts flat resolved values. It does not infer aliases, units, modes, or framework configuration.
+The code skill guides project-specific implementation; it does not generate universal production scaffolds automatically.
+Native Windows support, every harness version, and live visual fidelity require separate verification.
 
-**Which file does it edit?** Only your harness's own config (`~/.zcode/cli/config.json`,
-`~/.claude.json`, `~/.cursor/mcp.json`, …), and only the `figma-local` /
-`figma` entries inside it. Everything else is untouched.
-
-**Can it corrupt my agent config?** It rewrites atomically via temp-file-and-rename,
-and refuses to touch unparseable files. There's a test that feeds it garbage config and
-asserts nothing was written.
-
-**Windows?** WSL, please.
-
-## Contributing
-
-Small script, big test suite — keep both. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules (probe-before-write, atomic
-edits, hermetic tests) and pick up a
-[good first issue](https://github.com/adhamhaithameid/figma-wire/issues?q=is%3Aissue+label%3A%22good+first+issue%22).
-
-## Support
-
-If figma-wire saved you some friction, a coffee is appreciated ☕
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-adhamhaithameid-yellow?logo=buymeacoffee)](https://www.buymeacoffee.com/adhamhaithameid)
-
-## License
-
-[MIT](LICENSE) © Adham Haitham
+MIT license. See [LICENSE](LICENSE).

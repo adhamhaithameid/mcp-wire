@@ -2,6 +2,7 @@
 # figma-wire installer — copies the skill into ~/.agents/skills/figma-wire/
 # and verifies the runtime dependencies. Idempotent; safe to re-run.
 set -u
+umask 077
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${HOME}/.agents/skills/figma-wire"
@@ -21,9 +22,13 @@ echo "[ ok ] dependencies: bash, curl, jq"
 [ -f "$SRC/scripts/figma-wire.sh" ] || fail "scripts/figma-wire.sh not found"
 echo "[ ok ] source tree looks complete"
 
+bash "$SRC/scripts/package-skills.sh" || fail "skill packaging failed"
+
 # 3. self-test before installing (offline mode; network tests need real endpoints)
 echo "[ .. ] running self-tests (offline mode)"
-if SKIP_NETWORK_TESTS=1 bash "$SRC/tests/run-tests.sh" > /dev/null 2>&1; then
+if ! command -v node >/dev/null 2>&1; then
+  echo "[warn] Development self-tests skipped: Node.js is absent. The runtime needs bash, curl, and jq."
+elif SKIP_NETWORK_TESTS=1 bash "$SRC/tests/run-tests.sh" > /dev/null 2>&1; then
   echo "[ ok ] self-tests passed"
 else
   echo "self-test output:"
@@ -32,7 +37,7 @@ else
 fi
 
 # 4. install (copy, don't move — the source dir stays usable as a repo checkout)
-if [ "$(cd "$SRC" && pwd)" = "$(cd "$DEST" 2>/dev/null && pwd)" ]; then
+if [ "$(cd "$SRC" && pwd -P)" = "$(cd "$DEST" 2>/dev/null && pwd -P)" ]; then
   echo "[ ok ] already running from the install location — refreshing permissions only"
   chmod +x "$DEST/scripts/figma-wire.sh" "$DEST/tests/run-tests.sh" 2>/dev/null
 else
@@ -41,24 +46,28 @@ else
   cp -f "$SRC/SKILL.md" "$DEST/SKILL.md"       || fail "copy failed"
   cp -f "$SRC/README.md" "$DEST/README.md"     || fail "copy failed"
   cp -f "$SRC/LICENSE" "$DEST/LICENSE"         || fail "copy failed"
+  [ ! -d "$SRC/docs" ] || cp -R "$SRC/docs" "$DEST/"
+  [ ! -d "$SRC/completions" ] || cp -R "$SRC/completions" "$DEST/"
   mkdir -p "$DEST/scripts" "$DEST/references" "$DEST/tests"
-  cp -f "$SRC/scripts/figma-wire.sh" "$DEST/scripts/" || fail "copy failed"
+  cp -f "$SRC/scripts/"*.sh "$DEST/scripts/" || fail "copy failed"
   cp -f "$SRC/references/"*.md "$DEST/references/"    || fail "copy failed"
   cp -f "$SRC/tests/"* "$DEST/tests/" 2>/dev/null || true
+  [ ! -d "$SRC/skills" ] || cp -R "$SRC/skills" "$DEST/"
   chmod +x "$DEST/scripts/figma-wire.sh" "$DEST/tests/run-tests.sh" 2>/dev/null
 fi
 
-# 5. convenience symlink (works if ~/.local/bin or /usr/local/bin is on PATH)
-BIN=""
-for d in "$HOME/.local/bin" "/usr/local/bin" "$HOME/bin"; do
-  [ -d "$d" ] && { BIN="$d"; break; }
-done
-if [ -n "$BIN" ]; then
-  ln -sf "$DEST/scripts/figma-wire.sh" "$BIN/figma-wire"
-  echo "[ ok ] symlinked: $(command -v figma-wire 2>/dev/null || echo "$BIN/figma-wire")"
-else
-  echo "[warn] no bin dir on PATH found — invoke via: bash $DEST/scripts/figma-wire.sh"
-fi
+# Register self-contained domain skills after the connection skill.
+bash "$DEST/scripts/figma-wire.sh" install-skill || fail "skill registration failed"
+
+# 5. user-owned command path; never change a system bin directory.
+BIN="$HOME/.local/bin"
+mkdir -p "$BIN" || fail "cannot create user bin directory"
+ln -sf "$DEST/scripts/figma-wire.sh" "$BIN/figma-wire" || fail "cannot create user command link"
+echo "[ ok ] symlinked: $BIN/figma-wire"
+case ":$PATH:" in
+  *":$BIN:"*) : ;;
+  *) echo '[warn] Add $HOME/.local/bin to PATH to use the figma-wire command.' ;;
+esac
 
 # 6. post-install status
 echo

@@ -1,41 +1,26 @@
 #!/usr/bin/env bash
-# sync-engine.sh — vendor the mcp-wire engine into dependent skills.
-#
-# Bash has no linker: a skill that uses the engine must ship its own copy, or a
-# standalone install breaks. This script is the bridge — the engine file
-# (engine/mcp-wire.sh, the single source of truth) is stamped into each skill
-# package at release time, so one engine commit propagates to every skill on the
-# next release while distributed copies stay self-contained.
-#
-# Usage:
-#   scripts/sync-engine.sh <skill-dir> [<skill-dir>...]   # stamp engine into skills
-#   scripts/sync-engine.sh --check <skill-dir> [...]      # CI mode: exit 1 if stale
-set -u
-
+# Vendor the shared engine and optional family helpers into independent skills.
+# Usage: sync-engine.sh [--check] <skill-dir> [<skill-dir>...]
+# Sharing happens at build time; installed skills need no sibling checkout.
+set -eu -o pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENGINE="$REPO/engine/mcp-wire.sh"
-ENGINE_VERSION="$(grep -m1 '^VERSION=' "$ENGINE" | cut -d'"' -f2)"
 CHECK=0
-
-[ -f "$ENGINE" ] || { echo "FAIL: engine not found at $ENGINE" >&2; exit 1; }
-if [ "${1:-}" = "--check" ]; then CHECK=1; shift; fi
-[ $# -ge 1 ] || { echo "usage: scripts/sync-engine.sh [--check] <skill-dir> [...]" >&2; exit 1; }
-
-rc=0
+if [ "${1:-}" = --check ]; then CHECK=1; shift; fi
+[ $# -ge 1 ] || { echo 'Usage: sync-engine.sh [--check] <skill-dir> [...]' >&2; exit 1; }
+RC=0
 for skill in "$@"; do
-  [ -d "$skill" ] || { echo "FAIL: no such skill dir: $skill" >&2; rc=1; continue; }
-  dest="$skill/scripts/mcp-wire.sh"
-  mkdir -p "$skill/scripts"
-  if [ "$CHECK" -eq 1 ]; then
-    if [ ! -f "$dest" ]; then
-      echo "STALE: $dest missing (engine v${ENGINE_VERSION})" >&2; rc=1
-    elif ! cmp -s "$ENGINE" "$dest"; then
-      echo "STALE: $dest differs from engine v${ENGINE_VERSION} — re-run sync-engine.sh" >&2; rc=1
+  [ -d "$skill" ] || { echo "Missing skill directory: $skill" >&2; RC=1; continue; }
+  for name in mcp-wire.sh new-app.sh install-skills.sh; do
+    SOURCE="$REPO/scripts/$name"
+    [ "$name" != mcp-wire.sh ] || SOURCE="$REPO/engine/mcp-wire.sh"
+    DEST="$skill/scripts/$name"
+    if [ "$CHECK" -eq 1 ]; then
+      if ! cmp -s "$SOURCE" "$DEST"; then echo "STALE: $DEST differs from its shared source" >&2; RC=1; fi
     else
-      echo "ok  : $dest (engine v${ENGINE_VERSION})"
+      mkdir -p "$skill/scripts"
+      cp "$SOURCE" "$DEST"
     fi
-  else
-    cp -f "$ENGINE" "$dest" && echo "synced: $dest (engine v${ENGINE_VERSION})"
-  fi
+  done
+  [ "$CHECK" -eq 1 ] || echo "synced: shared engine and helpers into $skill"
 done
-exit $rc
+exit "$RC"

@@ -1,50 +1,34 @@
-# ROADMAP — the figma-wire domain set
+# Figma app roadmap
 
-figma-wire is the connection skill: it wires agents to Figma and keeps that wiring
-healthy. The suggestions below are **domain skills** — each one a focused, separately
-installable skill that goes deep on one Figma workflow, all riding the same
-[mcp-wire engine](https://github.com/adhamhaithameid/mcp-wire) and the same local
-Dev Mode MCP server. Every one of them ships a `doctor` first (the family standard),
-then helpers for its domain.
+Figma owns its connection and domain workflows in this repository.
+The mcp-wire repository owns the shared engine, family snapshots, and the pattern for other app repositories.
 
-Order here is the suggested build order, not a commitment — study each before
-building, and split any that feels like two skills.
+## Current local implementation
 
-## figma-design
+- figma-wire: connection repair, discovery, shell fallback, and shared engine access.
+- figma-design: focused design packets and flat resolved variable export.
+- figma-code: project-aware implementation instructions with existing components and tokens.
+- figma-verify: capture, saved-image comparison, structured reports, and explicit behavior checks.
+- figma-pages: focused metadata inventory and node selection.
 
-Deep design-system extraction. Beyond `get_design_context` for one node: pull a
-file's full variable/color/typography/component inventory as structured output
-(tokens file, style guide summary, component catalog). Consumes
-`get_variable_defs` + `get_metadata` sweeps + the REST styles endpoints through the
-mcp-wire engine's `raw` command.
+Each distributed skill includes its required runtime helpers.
+These capabilities require a reviewed release before users receive them through the family npm package.
 
-## figma-code
+## Further depth
 
-Production code generation. Where figma-wire's `call get_design_context` returns
-reference code, figma-code turns selected frames into framework-specific component
-scaffolds (React/Vue/Svelte/SwiftUI), wired to the caller's project conventions and
-validated against the design with the existing `diff` pixel gate.
+Add capabilities from demonstrated workflow needs and actual server schemas:
 
-## figma-prototype
+- Mode-aware variables, aliases, complete design-system inventories, and explicit framework token mappings.
+- Region masks and stable capture controls for complex visual checks.
+- Storybook recipes and matching references for responsive and dark-mode reviews.
+- Component mapping workflows through actual Code Connect capabilities.
+- Prototype flow extraction only when an available tool or documented API exposes the required information.
+- Cross-file search only after a real source and access model receive validation.
 
-Prototype flow understanding. Walk prototype links: screens, transitions,
-hotspots, and flow order (REST prototype endpoints through the engine), so an agent
-can implement multi-screen interactions, not just static frames.
+Do not assume a REST search or prototype endpoint exists from an older idea document.
+Do not generate motion or transition details without source evidence.
 
-## figma-pages
+## Family expansion
 
-File and page inventory. Map a whole Figma file: pages, frames, sections, sizes,
-and modification dates — the "give me a table of contents of this design file"
-skill. Mostly `get_metadata` sweeps; the foundation the other skills query.
-
-## figma-search
-
-Search across Figma. Find nodes, components, and files by name, type, or property
-(REST search + local indexing of swept metadata), answered as structured results an
-agent can act on.
-
-## Others (unstudied ideas)
-
-figma-handoff (dev-mode handoff packets per frame), figma-changes (diff a file
-between two versions/branches), figma-tokens (tokens-only export in W3C design
-tokens format). Add after the five above prove the pattern.
+New apps belong in new repositories. Start with the family app generator, then add actual authentication and workflow tests.
+Keep connection skills separate from app domain skills. Keep transport fixes in the shared engine.

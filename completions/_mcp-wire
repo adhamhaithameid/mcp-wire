@@ -1,0 +1,2 @@
+#compdef mcp-wire
+_arguments '*:command or flag:(list describe call raw resources prompts doctor servers skill --json --dry-run --header --header-env --timeout --config --stdio --allow-http --help --version)'

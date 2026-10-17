@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   engine:
     runs-on: ${{ matrix.os }}
@@ -12,12 +15,16 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
-      - name: Engine tests (hermetic, offline)
-        run: bash engine/tests/run-tests.sh
+      - name: Reviewed family snapshot
+        run: bash scripts/check-family.sh
+      - name: Extracted package artifacts
+        run: bash tests/test-package.sh
+      - name: Engine and family tests (hermetic, offline)
+        run: bash engine/tests/run-tests.sh && bash tests/test-family.sh
 
   figma-wire:
     runs-on: ${{ matrix.os }}
@@ -25,8 +32,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Unit tests (hermetic, offline)
@@ -35,3 +42,13 @@ jobs:
       - name: Installer e2e (sandboxed HOME)
         run: bash tests/e2e.sh
         working-directory: skills/figma-wire
+      - name: Domain bundles and saved-image gate
+        run: bash tests/test-domains.sh && bash tests/test-minimal-install.sh
+        working-directory: skills/figma-wire
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: shellcheck -S warning engine/mcp-wire.sh scripts/*.sh

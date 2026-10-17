@@ -1,7 +1,7 @@
 {
   "name": "@adhamhaithameid/mcp-wire",
-  "version": "1.0.1",
-  "description": "One bash engine that speaks MCP, plus the agent skills built on it — figma-wire (your AI agent finally sees your Figma designs) and every upcoming x-wire skill. Install once, get both CLIs and all skills.",
+  "version": "1.1.0",
+  "description": "One bash engine that speaks MCP, plus the agent skills built on it \u2014 figma-wire (your AI agent finally sees your Figma designs) and every upcoming x-wire skill. Install once, get both CLIs and all skills.",
   "license": "MIT",
   "author": "Adham Haitham <adhamhaithameid@users.noreply.github.com>",
   "repository": {
@@ -34,14 +34,28 @@
     "CHANGELOG.md",
     "engine/",
     "skills/",
-    "scripts/"
+    "scripts/",
+    "family.json",
+    "family.lock.json",
+    "SECURITY.md",
+    "ARCHITECTURE.md",
+    "completions/",
+    "examples/",
+    "docs/harnesses.md",
+    "docs/visual-verification.md",
+    "docs/new-app.md",
+    "docs/releasing.md"
   ],
   "scripts": {
-    "test": "bash engine/tests/run-tests.sh && cd skills/figma-wire && SKIP_NETWORK_TESTS=1 bash tests/run-tests.sh && bash tests/e2e.sh"
+    "test": "bash tests/run-tests.sh",
+    "prepack": "bash scripts/check-family.sh"
   },
   "engines": {
     "node": ">=16"
   },
-  "os": ["darwin", "linux"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "preferGlobal": true
 }

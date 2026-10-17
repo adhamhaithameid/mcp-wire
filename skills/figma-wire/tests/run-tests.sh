@@ -41,6 +41,8 @@ assert_not() { # assert_not <name> <cmd...> — command must exit nonzero
 }
 out_has() { grep -q "$1" "$TMP/out.txt"; }
 
+unset FIGMA_WIRE_SERVER FIGMA_TOKEN
+
 # --- sandbox env ---------------------------------------------------------------
 export FIGMA_WIRE_HOME="$TMP"
 export FIGMA_WIRE_STATE="$TMP/state.json"
@@ -92,6 +94,7 @@ t "link: bare 22-char fileKey"          bash "$FW" link "AbCdEfGhIjKlMnOpQrStUv"
 assert "link: bare key accepted"        grep -q "fileKey : AbCdEfGhIjKlMnOpQrStUv" "$TMP/out.txt"
 tfail "link: garbage input"             bash "$FW" link "https://example.com/not-figma"
 assert "link: garbage has hint"         out_has "Could not parse a fileKey"
+assert "state: bare file key clears previous node" jq -e '(.lastLink | has("nodeIdColon")) == false' "$FIGMA_WIRE_STATE"
 assert "state: lastLink.fileKey stored" jq -e '.lastLink.fileKey == "AbCdEfGhIjKlMnOpQrStUv"' "$FIGMA_WIRE_STATE"
 
 # --- use: refusals -------------------------------------------------------------------
@@ -193,16 +196,74 @@ assert "doctor --fix: config rewired"   jq -e --arg u "http://127.0.0.1:${PORT}/
 tfail "doctor --fix: range without server fails" env FIGMA_WIRE_PORT=9 FIGMA_WIRE_SCAN_PORTS="9-9" bash "$FW" doctor --fix
 
 # --- v1.2: call passthrough (fake server) ---------------------------------------------------
-t "call: smoke against fake server"     bash "$FW" call get_screenshot '{"nodeId":"1:1"}'
-assert "call: raw result dumped"        out_has "protocolVersion"
-tfail "call: no live server anywhere"   env FIGMA_WIRE_PORT=9 FIGMA_WIRE_SCAN_PORTS="9-9" bash "$FW" call get_screenshot '{"nodeId":"1:1"}'
+t "call: smoke against fake server"     bash "$FW" call get_design_context '{"nodeId":"1:1"}'
+assert "call: raw result dumped"        out_has "design node"
+tfail "call: no live server anywhere"   env FIGMA_WIRE_PORT=9 FIGMA_WIRE_SCAN_PORTS="9-9" bash "$FW" call get_design_context '{"nodeId":"1:1"}'
 assert "call: missing-server hint"      out_has "Dev Mode"
-t "call: bare nodeId shorthand"         bash "$FW" call get_screenshot "12:34"
-assert "call: shorthand works"          out_has "protocolVersion"
+t "call: bare nodeId shorthand"         bash "$FW" call get_design_context "12:34"
+assert "call: shorthand works"          out_has "design node"
 
 # --- v1.3: diff arg validation (full path needs live Figma + browser; validated manually) --
 tfail "diff: missing url rejected"      bash "$FW" diff "1:1"
 tfail "diff: no args rejected"          bash "$FW" diff
+
+# Shared engine and domain helpers.
+t "tools: discover JSON" bash "$FW" tools --json
+assert "tools: actual schemas" jq -e '.tools[0].inputSchema.type == "object"' "$TMP/out.txt"
+t "describe: input schema" bash "$FW" describe get_screenshot
+t "call: JSON result" bash "$FW" call get_design_context '1:2' --json
+assert "call: result content" jq -e '.content[0].text == "design node 1:2"' "$TMP/out.txt"
+t "call: image export" bash "$FW" call get_screenshot '1:2' -o "$TMP/image"
+assert "call: bundled engine writes image" test -s "$TMP/image-1.png"
+tfail "call: tool failure" bash "$FW" call fixture_error --json
+t "design: collect packet" bash "$FW" design '1:2' "$TMP/packet"
+assert "design: manifest" jq -e '.nodeId == "1:2"' "$TMP/packet/manifest.json"
+assert "design: screenshot" test -s "$TMP/packet/reference-1.png"
+tfail "design: do not overwrite" bash "$FW" design '1:2' "$TMP/packet"
+t "tokens: export collected variables" bash "$FW" tokens "$TMP/packet/get_variable_defs.json" "$TMP/tokens"
+assert "tokens: CSS variables" grep -q -- '--figma-color-primary: #c0392b;' "$TMP/tokens.css"
+assert "tokens: TypeScript types" grep -q 'keyof typeof figmaTokens' "$TMP/tokens.ts"
+printf '{"a/b":"red","a-b":"blue"}' > "$TMP/collision.json"
+tfail "tokens: collision rejected" bash "$FW" tokens "$TMP/collision.json" "$TMP/collision"
+printf '{"color":"red; } body { color: blue"}' > "$TMP/unsafe.json"
+tfail "tokens: unsafe CSS rejected" bash "$FW" tokens "$TMP/unsafe.json" "$TMP/unsafe"
+tfail "diff: invalid threshold" bash "$FW" diff '1:2' http://localhost --threshold 101
+tfail "diff: invalid viewport" bash "$FW" diff '1:2' http://localhost --viewport bad
+tfail "unknown harness rejected" bash "$FW" --harness invalid config
+tfail "missing harness argument rejected" bash "$FW" --harness
+t "doctor: JSON fix" env FIGMA_WIRE_CONFIG="$TMP/fix-json.json" bash "$FW" doctor --fix --json
+assert "doctor: repaired JSON is clean" jq -e '.ok and .wired' "$TMP/out.txt"
+
+# REST uses a separate personal access token and fails on HTTP errors.
+mkdir -p "$TMP/rest-bin" "$TMP/rest"
+cat > "$TMP/rest-bin/curl" <<'CURL'
+#!/usr/bin/env bash
+[ "${FIXTURE_REST_ERROR:-0}" != 1 ] || exit 22
+output=''; url=''
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) output="$2"; shift 2 ;;
+    https://*) url="$1"; shift ;;
+    *) shift ;;
+  esac
+done
+printf '%s' "$url" > "$FIXTURE_REST_LOG"
+printf '{"document":{"id":"fixture"}}' > "$output"
+CURL
+chmod +x "$TMP/rest-bin/curl"
+rest_fetch() { (cd "$TMP/rest" && PATH="$TMP/rest-bin:$PATH" FIGMA_TOKEN=fixture-rest-token FIXTURE_REST_LOG="$TMP/rest-url" bash "$FW" fetch "$@"); }
+t "REST: file endpoint" rest_fetch "$KEY"
+assert "REST: no node endpoint without node ID" grep -qx "https://api.figma.com/v1/files/${KEY}" "$TMP/rest-url"
+# Clear saved selection so an explicit whole-file fetch has no implicit node.
+jq 'del(.lastLink.nodeIdColon)' "$FIGMA_WIRE_STATE" > "$TMP/cleared-state" && mv "$TMP/cleared-state" "$FIGMA_WIRE_STATE"
+t "REST: whole file endpoint" rest_fetch "$KEY"
+assert "REST: whole file URL" grep -qx "https://api.figma.com/v1/files/${KEY}" "$TMP/rest-url"
+t "REST: selected node endpoint" rest_fetch "$KEY" '3:4'
+assert "REST: node URL" grep -qx "https://api.figma.com/v1/files/${KEY}/nodes?ids=3:4" "$TMP/rest-url"
+export FIXTURE_REST_ERROR=1
+tfail "REST: HTTP failure is not success" rest_fetch "$KEY" '3:4'
+assert_not "REST: failed artifact removed" test -f "$TMP/rest/figma-${KEY}-3-4.json"
+unset FIXTURE_REST_ERROR
 
 # --- misc -------------------------------------------------------------------------------------
 tfail "unknown command rejected"        bash "$FW" nope

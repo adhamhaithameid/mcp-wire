@@ -1,7 +1,7 @@
 {
   "name": "figma-wire",
-  "version": "1.4.1",
-  "description": "Wire any AI coding agent to Figma: probe/repair the local Dev Mode MCP server across harnesses (ZCode, Claude Code, Codex, Cursor, Windsurf, VS Code, Gemini CLI), parse share links, and call Figma MCP tools from plain bash — no MCP client required.",
+  "version": "1.5.0",
+  "description": "Wire any AI coding agent to Figma: probe/repair the local Dev Mode MCP server across harnesses (ZCode, Claude Code, Codex, Cursor, Windsurf, VS Code, Gemini CLI), parse share links, and call Figma MCP tools from plain bash \u2014 no MCP client required.",
   "license": "MIT",
   "author": "Adham Haitham <adhamhaithameid@users.noreply.github.com>",
   "repository": {
@@ -33,15 +33,23 @@
     "scripts/",
     "references/",
     "tests/",
-    "skills/"
+    "skills/",
+    "SECURITY.md",
+    "ARCHITECTURE.md",
+    "CHANGELOG.md",
+    "completions/",
+    "docs/"
   ],
   "scripts": {
-    "test": "SKIP_NETWORK_TESTS=1 bash tests/run-tests.sh && bash tests/e2e.sh",
-    "prepack": "mkdir -p skills/figma-wire/references && cp SKILL.md skills/figma-wire/SKILL.md && cp references/*.md skills/figma-wire/references/"
+    "test": "SKIP_NETWORK_TESTS=1 bash tests/run-tests.sh && bash tests/e2e.sh && bash tests/test-domains.sh && bash tests/test-minimal-install.sh",
+    "prepack": "bash scripts/package-skills.sh"
   },
   "engines": {
     "node": ">=16"
   },
-  "os": ["darwin", "linux"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "preferGlobal": true
 }

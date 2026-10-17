@@ -10,8 +10,9 @@
 # Env overrides: FIGMA_WIRE_HARNESS, FIGMA_WIRE_CONFIG, FIGMA_WIRE_STATE,
 #                FIGMA_WIRE_PORT, FIGMA_WIRE_SCAN_PORTS, FIGMA_TOKEN
 set -u -o pipefail
+umask 077
 
-VERSION="1.4.1"
+VERSION="1.5.0"
 DEFAULT_PORT="${FIGMA_WIRE_PORT:-3845}"
 REMOTE_URL="https://mcp.figma.com/mcp"
 INIT_BODY='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"figma-wire","version":"1.0"}}}'
@@ -156,7 +157,7 @@ json_set_local() { # $1 harness  $2 url  $3 file
     gemini)         expr='.mcpServers = (.mcpServers // {}) | .mcpServers["figma-local"] = {"httpUrl":$url}' ;;
     *) return 1 ;;
   esac
-  local tmp; tmp="$(mktemp)"
+  local tmp; tmp="$(mktemp "${3}.tmp.XXXXXX")"
   if jq --arg url "$2" "$expr" "$3" > "$tmp" 2>/dev/null; then mv -f "$tmp" "$3"; else rm -f "$tmp"; return 1; fi
 }
 
@@ -263,8 +264,12 @@ toml_block_has() { # $1 block-name $2 file
 
 codex_set_local() { toml_upsert "$2" "mcp_servers.figma-local" "url = \"$1\""; }
 codex_set_remote_auth() { # $1 token $2 region $3 file
-  local lines=( "url = \"$REMOTE_URL\"" "http_headers = { \"Authorization\" = \"Bearer $1\" }" )
-  [ -n "$2" ] && lines+=( "http_headers = { \"Authorization\" = \"Bearer $1\", \"X-Figma-Region\" = \"$2\" }" )
+  local auth region lines
+  auth=$(jq -Rn --arg t "Bearer $1" '$t')
+  region=$(jq -Rn --arg r "$2" '$r')
+  lines=( "url = \"$REMOTE_URL\"" )
+  if [ -n "$2" ]; then lines+=( "http_headers = { Authorization = $auth, X-Figma-Region = $region }" )
+  else lines+=( "http_headers = { Authorization = $auth }" ); fi
   toml_upsert "$3" "mcp_servers.figma" "${lines[@]}"
 }
 codex_remote_off() { # $1 file — Codex has no portable disabled flag; remove the block
@@ -331,11 +336,12 @@ check_harness_wiring() { # $1 harness $2 live_url -> rc 0 wired / 1 not
 
 cmd_doctor() {
   need_deps || return 1
-  local json_out=0 do_fix=0
+  local json_out=0 do_fix=0 check_remote=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --json) json_out=1 ;;
       --fix)  do_fix=1 ;;
+      --remote) check_remote=1 ;;
       *) bad "unknown doctor flag: $1"; return 1 ;;
     esac
     shift
@@ -390,8 +396,8 @@ cmd_doctor() {
       *)     json_remote_present "$target" "$path" && present="true"
              enabled="$(json_remote_enabled "$target" "$path")" ;;
     esac
-    probe "$REMOTE_URL"; remote_code="$PROBE_CODE"
-    if [ $json_out -eq 0 ]; then
+    if [ "$check_remote" -eq 1 ]; then probe "$REMOTE_URL"; remote_code="$PROBE_CODE"; else PROBE_CODE="not_checked"; remote_code="not_checked"; fi
+    if [ $json_out -eq 0 ] && [ "$check_remote" -eq 1 ]; then
       if [ "$PROBE_CODE" = "200" ]; then
         ok "Remote MCP (mcp.figma.com) reachable and authenticated"
       elif [ "$PROBE_CODE" = "401" ]; then
@@ -407,6 +413,35 @@ cmd_doctor() {
     fi
   fi
 
+  # --fix: auto-apply wiring once a live server is confirmed
+  local cfg_url
+  if [ $do_fix -eq 1 ] && [ $port_ok -eq 1 ]; then
+    if [ "$target" = "all" ]; then
+      for h in $(all_harnesses); do
+        [ -f "$(harness_config_path "$h")" ] || continue
+        cfg_url="$(local_entry_url "$h" "$(harness_config_path "$h")")"
+        [ "$cfg_url" = "$url" ] || { set_local_entry "$h" "$url" "$(harness_config_path "$h")" && { [ "$json_out" -eq 1 ] || ok "[$h] fixed: figma-local -> ${url}"; }; }
+      done
+    else
+      cfg_url="$(local_entry_url "$target" "$path")"
+      if [ "$cfg_url" != "$url" ]; then
+        ensure_config_exists "$target" "$path"
+        set_local_entry "$target" "$url" "$path" && { [ "$json_out" -eq 1 ] || ok "[${target}] fixed: figma-local -> ${url}"; }
+      fi
+    fi
+    # re-verify quietly
+    rc=0
+    if [ "$target" = "all" ]; then
+      for h in $(all_harnesses); do
+        [ -f "$(harness_config_path "$h")" ] || continue
+        [ "$(local_entry_url "$h" "$(harness_config_path "$h")")" = "$url" ] || rc=1
+      done
+    else
+      [ "$(local_entry_url "$target" "$path")" = "$url" ] || rc=1
+    fi
+  fi
+
+  [ "$port_ok" -eq 1 ] || rc=1
   if [ $json_out -eq 1 ]; then
     local wired_val="false"; [ $rc -eq 0 ] && wired_val="true"
     local ok_val="false"; [ $port_ok -eq 1 ] && ok_val="true"
@@ -422,34 +457,6 @@ cmd_doctor() {
         remote:{present:($present=="true"), enabled:($enabled=="true"), lastHttpCode:$remoteCode},
         ok:($wired=="true" and ($localOk=="true"))}'
     return $rc
-  fi
-
-  # --fix: auto-apply wiring once a live server is confirmed
-  local cfg_url
-  if [ $do_fix -eq 1 ] && [ $port_ok -eq 1 ]; then
-    if [ "$target" = "all" ]; then
-      for h in $(all_harnesses); do
-        [ -f "$(harness_config_path "$h")" ] || continue
-        cfg_url="$(local_entry_url "$h" "$(harness_config_path "$h")")"
-        [ "$cfg_url" = "$url" ] || { set_local_entry "$h" "$url" "$(harness_config_path "$h")" && ok "[$h] fixed: figma-local -> ${url}"; }
-      done
-    else
-      cfg_url="$(local_entry_url "$target" "$path")"
-      if [ "$cfg_url" != "$url" ]; then
-        ensure_config_exists "$target" "$path"
-        set_local_entry "$target" "$url" "$path" && ok "[${target}] fixed: figma-local -> ${url}"
-      fi
-    fi
-    # re-verify quietly
-    rc=0
-    if [ "$target" = "all" ]; then
-      for h in $(all_harnesses); do
-        [ -f "$(harness_config_path "$h")" ] || continue
-        [ "$(local_entry_url "$h" "$(harness_config_path "$h")")" = "$url" ] || rc=1
-      done
-    else
-      [ "$(local_entry_url "$target" "$path")" = "$url" ] || rc=1
-    fi
   fi
 
   echo "== done =="
@@ -553,8 +560,12 @@ cmd_link() {
 
   state_set ".lastLink.fileKey = \"${filekey}\""
   state_set ".lastLink.kind = \"${kind}\""
-  [ -n "$nid_dash" ] && state_set ".lastLink.nodeIdDash = \"${nid_dash}\""
-  [ -n "$nid_colon" ] && state_set ".lastLink.nodeIdColon = \"${nid_colon}\""
+  if [ -n "$nid_dash" ]; then
+    state_set ".lastLink.nodeIdDash = \"${nid_dash}\""
+    state_set ".lastLink.nodeIdColon = \"${nid_colon}\""
+  else
+    state_set 'del(.lastLink.nodeIdDash, .lastLink.nodeIdColon)'
+  fi
 
   echo
   info "Open that file as the active tab in Figma desktop, then call the local MCP get_design_context with nodeId \"${nid_colon:-<selection>}\" (dash-form fallback: ${nid_dash:-n/a})"
@@ -574,22 +585,31 @@ cmd_call() {
     return 1
   fi
 
-  local out_prefix="" args_json=""
+  local out_prefix="" args_json="" call_flags=()
   while [ $# -gt 0 ]; do
     case "$1" in
-      -o)      out_prefix="${2:-}"; shift 2 || true ;;
+      --json|--dry-run) call_flags+=("$1"); shift ;;
+      --timeout) [ $# -ge 2 ] || { bad "--timeout requires a value"; return 1; }; call_flags+=("$1" "$2"); shift 2 ;;
+      -o)      [ $# -ge 2 ] || { bad "-o requires a prefix"; return 1; }; out_prefix="$2"; shift 2 ;;
       -o=*)    out_prefix="${1#-o=}"; shift ;;
       -*)      bad "unknown call flag: $1"; return 1 ;;
       *)       if [ -z "$args_json" ]; then
                  if [[ "$1" =~ ^\{ ]]; then args_json="$1"
                  elif [[ "$1" =~ ^[0-9]+[:\-][0-9]+$ ]]; then
                    local nid="$1"; args_json="{\"nodeId\":\"${nid/-/:}\"}"
-                 else args_json="{\"nodeId\":\"$1\"}"; fi
-               else bad "extra positional arg: $1 (nodeId or one JSON object)"; return 1; fi
+                 else args_json="$(jq -nc --arg n "$1" '{nodeId:$n}')"; fi
+               else bad "Pass one node ID or JSON argument object."; return 1; fi
                shift ;;
     esac
   done
   [ -n "$args_json" ] || args_json='{}'
+
+  if [ -n "${FIGMA_WIRE_SERVER:-}" ]; then
+    local flags=()
+    [ -z "$out_prefix" ] || flags+=("-o" "$out_prefix")
+    MCP_WIRE_IMAGE_PREFIX="figma-${tool}" bash "$SCRIPT_DIR/mcp-wire.sh" "$FIGMA_WIRE_SERVER" call "$tool" "$args_json" "${flags[@]+"${flags[@]}"}" "${call_flags[@]+"${call_flags[@]}"}"
+    return
+  fi
 
   # resolve a live local server
   local port url
@@ -604,80 +624,22 @@ cmd_call() {
     fi
   fi
 
-  # full MCP handshake: initialize -> initialized -> tools/call
-  local hdr tf sess data_line
-  hdr="$(mktemp)"; tf="$(mktemp)"
-  curl -sS -D "$hdr" -o "$tf" --max-time 15 -X POST "$url" \
-    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
-    -d "$INIT_BODY" 2>/dev/null || { bad "initialize failed"; rm -f "$hdr" "$tf"; return 1; }
-  sess="$(grep -i '^mcp-session-id:' "$hdr" | tr -d '\r' | awk '{print $2}')"
-  rm -f "$tf"
-  if [ -z "$sess" ]; then bad "server returned no session id"; rm -f "$hdr"; return 1; fi
+  local engine="$SCRIPT_DIR/mcp-wire.sh"
+  [ -f "$engine" ] || { bad "Bundled engine missing. Reinstall figma-wire from a complete package."; return 1; }
+  local flags=()
+  [ -z "$out_prefix" ] || flags+=("-o" "$out_prefix")
+  MCP_WIRE_IMAGE_PREFIX="figma-${tool}" bash "$engine" "$url" call "$tool" "$args_json" --allow-http "${flags[@]+"${flags[@]}"}" "${call_flags[@]+"${call_flags[@]}"}"
+}
 
-  curl -sS --max-time 15 -X POST "$url" \
-    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
-    -H "mcp-session-id: $sess" -d '{"jsonrpc":"2.0","method":"notifications/initialized"}' > /dev/null 2>&1
-
-  local call_body
-  call_body=$(jq -n --arg tool "$tool" --argjson args "$args_json" \
-    '{jsonrpc:"2.0", id:3, method:"tools/call", params:{name:$tool, arguments:$args}}')
-  curl -sS --max-time 90 -X POST "$url" \
-    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
-    -H "mcp-session-id: $sess" -d "$call_body" > "$tf" 2>/dev/null || { bad "tools/call request failed"; rm -f "$hdr" "$tf"; return 1; }
-  rm -f "$hdr"
-
-  data_line=$(grep '^data:' "$tf" | tail -1 | sed 's/^data: //')
-  rm -f "$tf"
-  if [ -z "$data_line" ]; then bad "no response body from tools/call"; return 1; fi
-
-  if jq -e '.error' <<<"$data_line" > /dev/null 2>&1; then
-    bad "MCP error: $(jq -c '.error' <<<"$data_line")"
-    return 1
+# Discovery uses the same endpoint and engine as calls.
+cmd_mcp() {
+  need_deps || return 1
+  local url="${FIGMA_WIRE_SERVER:-}" port flags=()
+  if [ -z "$url" ]; then
+    port="$(find_local_port)" || { bad "No local Dev Mode server found. Run figma-wire doctor."; return 1; }
+    url="$(local_url_for "$port")"; flags+=(--allow-http)
   fi
-
-  local prefix="${out_prefix:-figma-${tool}}"
-  local img_n=0 saved="" is_err
-  is_err=$(jq -r '.result.isError // "false"' <<<"$data_line" 2>/dev/null)
-
-  while IFS= read -r item; do
-    [ -n "$item" ] || continue
-    local itype itext
-    itype=$(jq -r '.type // empty' <<<"$item" 2>/dev/null)
-    case "$itype" in
-      text)
-        itext=$(jq -r '.text // empty' <<<"$item" 2>/dev/null)
-        if [ -n "$out_prefix" ]; then
-          printf '%s\n' "$itext" >> "${prefix}.txt"; saved="$saved ${prefix}.txt"
-        else
-          printf '%s\n' "$itext"
-        fi
-        ;;
-      image)
-        img_n=$((img_n+1))
-        local mime ext imgfile
-        mime=$(jq -r '.mimeType // "image/png"' <<<"$item")
-        ext="${mime##*/}"; [ "$ext" = "jpeg" ] && ext="jpg"
-        imgfile="${prefix}-${img_n}.${ext}"
-        jq -r '.data // empty' <<<"$item" | b64decode > "$imgfile" 2>/dev/null
-        saved="$saved ${imgfile}"
-        ;;
-      resource)
-        itext=$(jq -r '.text // .uri // empty' <<<"$item" 2>/dev/null)
-        if [ -n "$out_prefix" ]; then printf '%s\n' "$itext" >> "${prefix}.txt"; saved="$saved ${prefix}.txt"
-        else printf '%s\n' "$itext"; fi
-        ;;
-    esac
-  done < <(jq -c '.result.content[]?' <<<"$data_line" 2>/dev/null)
-
-  if [ -n "$saved" ]; then
-    ok "saved:$saved"
-  elif [ -z "$out_prefix" ] && [ "$img_n" -eq 0 ]; then
-    # no content array (unexpected shape) — dump the raw result so nothing is lost
-    jq '.result // .' <<<"$data_line"
-  fi
-
-  [ "$is_err" = "true" ] && { bad "tool reported an error (see output above)"; return 1; }
-  return 0
+  bash "$SCRIPT_DIR/mcp-wire.sh" "$url" "$@" "${flags[@]+"${flags[@]}"}"
 }
 
 # --- diff <nodeId> <url> ---------------------------------------------------------------
@@ -687,14 +649,14 @@ cmd_diff() {
   local node_id="" url="" prefix="" viewport="1440x900" full_page=0 wait_ms=2500 threshold=5 resize=0
   while [ $# -gt 0 ]; do
     case "$1" in
-      --out) prefix="${2:-}"; shift 2 || true ;;
+      --out) [ $# -ge 2 ] || { bad "--out requires a prefix"; return 1; }; prefix="$2"; shift 2 ;;
       --out=*) prefix="${1#--out=}"; shift ;;
-      --viewport) viewport="${2:-}"; shift 2 || true ;;
+      --viewport) [ $# -ge 2 ] || { bad "--viewport requires a value"; return 1; }; viewport="$2"; shift 2 ;;
       --viewport=*) viewport="${1#--viewport=}"; shift ;;
       --full-page) full_page=1; shift ;;
-      --wait) wait_ms="${2:-}"; shift 2 || true ;;
+      --wait) [ $# -ge 2 ] || { bad "--wait requires a value"; return 1; }; wait_ms="$2"; shift 2 ;;
       --wait=*) wait_ms="${1#--wait=}"; shift ;;
-      --threshold) threshold="${2:-}"; shift 2 || true ;;
+      --threshold) [ $# -ge 2 ] || { bad "--threshold requires a value"; return 1; }; threshold="$2"; shift 2 ;;
       --threshold=*) threshold="${1#--threshold=}"; shift ;;
       --resize) resize=1; shift ;;
       *) if [ -z "$node_id" ]; then node_id="$1"
@@ -707,6 +669,10 @@ cmd_diff() {
     bad "usage: figma-wire diff <nodeId> <url> [--viewport WxH] [--out prefix] [--threshold N] [--full-page] [--resize]"
     return 1
   fi
+  [[ "$viewport" =~ ^[1-9][0-9]*x[1-9][0-9]*$ ]] || { bad "--viewport requires WIDTHxHEIGHT"; return 1; }
+  [[ "$wait_ms" =~ ^[0-9]+$ ]] || { bad "--wait requires nonnegative milliseconds"; return 1; }
+  [[ "$threshold" =~ ^[0-9]+([.][0-9]+)?$ ]] && awk -v t="$threshold" 'BEGIN{exit !(t>=0 && t<=100)}' || { bad "--threshold requires a percentage from 0 to 100"; return 1; }
+  command -v magick >/dev/null || { bad "ImageMagick 7 is required for visual comparison"; return 1; }
   command -v compare > /dev/null 2>&1 || { bad "ImageMagick 'compare' not found — install it (brew install imagemagick) for pixel diffing"; return 1; }
 
   [ -n "$prefix" ] || prefix="figma-diff-$(date +%Y%m%d-%H%M%S)"
@@ -743,33 +709,8 @@ cmd_diff() {
   fi
 
   ok "3/4 pixel diffing ..."
-  local diff_png="${prefix}-diff.png" ae
-  ae=$(compare -metric AE "$figma_png" "$page_png" "$diff_png" 2>&1 > /dev/null || true)
-  ae="${ae%%[$'\r\n']*}"
-  ae="${ae%% *}"
-
-  ok "4/4 composing side-by-side ..."
-  local side="${prefix}-side.png"
-  magick "$figma_png" "$page_png" "$diff_png" +append "$side" 2> /dev/null || true
-
-  local total=$(( fw * fh ))
-  local pct
-  pct=$(awk -v ae="${ae:-0}" -v t="$total" 'BEGIN { if (t > 0) printf "%.2f", (ae / t) * 100; else print "100.00" }')
-
-  echo
-  echo "figma : ${figma_png}  (${fw}x${fh})"
-  echo "page  : ${page_png}"
-  echo "diff  : ${diff_png}"
-  [ -f "$side" ] && echo "side  : ${side}"
-  echo "mismatched pixels: ${ae:-0}/${total} (${pct}%)"
-
-  if awk -v p="$pct" -v th="$threshold" 'BEGIN { exit ! (p + 0 <= th + 0) }'; then
-    ok "PASS — ${pct}% mismatched, within the ${threshold}% threshold"
-    return 0
-  else
-    bad "FAIL — ${pct}% mismatched, exceeds the ${threshold}% threshold"
-    return 1
-  fi
+  # Preserve the original artifact names; the shared helper also writes a JSON report.
+  bash "$SCRIPT_DIR/figma-compare.sh" "$figma_png" "$page_png" --threshold "$threshold" --out "$prefix"
 }
 
 # --- remote token <TOKEN> | remote off ------------------------------------------------
@@ -781,9 +722,9 @@ cmd_remote() {
       local tok="" region=""
       while [ $# -gt 0 ]; do
         case "$1" in
-          --region)  region="${2:-}"; shift 2 || true ;;
+          --region)  [ $# -ge 2 ] || { bad "--region requires a value"; return 1; }; region="$2"; shift 2 ;;
           --region=*) region="${1#--region=}"; shift ;;
-          *) if [ -z "$tok" ]; then tok="$1"; else bad "unexpected arg: $1"; return 1; fi; shift ;;
+          *) if [ -z "$tok" ]; then tok="$1"; else bad "Unexpected argument."; return 1; fi; shift ;;
         esac
       done
       if [ -z "$tok" ]; then bad "usage: figma-wire remote token <TOKEN> [--region us-east-1]"; return 1; fi
@@ -851,33 +792,21 @@ cmd_fetch() {
 
   local tok="${FIGMA_TOKEN:-}"
   if [ -z "$tok" ]; then
-    local target; target="$(detect_harness)"
-    local path; path="$(harness_config_path "$target")"
-    if [ -f "$path" ]; then
-      if [ "$target" = "codex" ]; then
-        tok=$(awk '/^\[mcp_servers\.figma\]/{inblk=1;next} inblk&&/^\[/{inblk=0} inblk&&/Authorization/{
-          if (match($0, /Bearer[[:space:]]+"([^"]+)"/, m)) { print m[1]; exit }
-          else if (match($0, /"([^"]+)"/, m)) { print m[1]; exit }
-        }' "$path" 2>/dev/null | sed -E 's/^Bearer +//')
-      else
-        tok=$(json_remote_auth_header "$target" "$path" | sed -E 's/^Bearer +//')
-      fi
-    fi
-  fi
-  if [ -z "$tok" ]; then
-    bad "No token. Set FIGMA_TOKEN or run: figma-wire remote token <TOKEN>"
+    bad "No REST token. Set FIGMA_TOKEN to a Figma personal access token."
     info "No token at all? The local Dev Mode MCP needs none — prefer that path (see: figma-wire call)"
     return 1
   fi
 
-  local qs="" out
-  if [ -n "$nid" ]; then qs="?ids=${nid/-/:}"; fi
+  [[ "$fk" =~ ^[A-Za-z0-9]+$ ]] || { bad "Invalid Figma file key"; return 1; }
+  [ -z "$nid" ] || [[ "$nid" =~ ^[0-9]+[:-][0-9]+$ ]] || { bad "Invalid Figma node ID"; return 1; }
+  local qs="" out endpoint="https://api.figma.com/v1/files/${fk}"
+  if [ -n "$nid" ]; then endpoint="$endpoint/nodes"; qs="?ids=${nid/-/:}"; fi
   out="figma-${fk}$( [ -n "$nid" ] && echo "-$(echo "$nid" | tr ':' '-')" ).json"
 
-  if curl -sS --max-time 30 -H "X-Figma-Token: ${tok}" \
-       "https://api.figma.com/v1/files/${fk}/nodes${qs}" -o "$out"; then
+  if curl -q -fsS --max-time 30 -H "X-Figma-Token: ${tok}" \
+       "${endpoint}${qs}" -o "$out" 2>/dev/null; then
     ok "Wrote ${out}"
-    info "If it contains a 403/404 ERR, the token lacks access to this file"
+    info "REST response saved. MCP bearer tokens cannot substitute for a REST personal access token."
   else
     rm -f "$out"
     bad "REST fetch failed"
@@ -902,7 +831,7 @@ cmd_status() {
   fi
   probe "$url"
   local local_ok="false"; [ "$PROBE_CODE" = "200" ] && local_ok="true"
-  probe "$REMOTE_URL"
+  PROBE_CODE="not_checked"
   local wired="false"
   [ "$(local_entry_url "$target" "$path" 2>/dev/null)" = "$url" ] && wired="true"
   jq -n \
@@ -935,17 +864,8 @@ cmd_version() { echo "figma-wire ${VERSION}"; }
 
 # --- install-skill: register the skill into ~/.agents/skills (npm-install path) ------
 cmd_install_skill() {
-  local dest="$HOME/.agents/skills/figma-wire"
-  [ -f "$SKILL_DIR/SKILL.md" ] || { bad "SKILL.md not found next to the script (${SKILL_DIR})"; return 1; }
-  mkdir -p "$dest/scripts" "$dest/references" || { bad "cannot create ${dest}"; return 1; }
-  cp -f "$SKILL_DIR/SKILL.md" "$dest/SKILL.md"
-  [ -f "$SKILL_DIR/README.md" ] && cp -f "$SKILL_DIR/README.md" "$dest/README.md"
-  [ -f "$SKILL_DIR/LICENSE" ] && cp -f "$SKILL_DIR/LICENSE" "$dest/LICENSE"
-  cp -f "$SKILL_DIR/scripts/figma-wire.sh" "$dest/scripts/"
-  [ -f "$SKILL_DIR/references/devmode-tools.md" ] && cp -f "$SKILL_DIR/references/devmode-tools.md" "$dest/references/"
-  chmod +x "$dest/scripts/figma-wire.sh" 2>/dev/null
-  ok "skill registered at ${dest}"
-  info "Restart your agent session so it discovers the new skill"
+  grep -q '^name: figma-wire$' "$SKILL_DIR/SKILL.md" 2>/dev/null || { bad "Run install-skill from the figma-wire connection skill or family CLI."; return 1; }
+  bash "$SCRIPT_DIR/install-skills.sh"
 }
 
 # --- usage / main ---------------------------------------------------------------------------
@@ -954,13 +874,21 @@ usage() {
 figma-wire — wire AI coding agents to Figma
 (ZCode, Claude Code, Codex, Cursor, Windsurf, VS Code, Gemini CLI, generic)
 
-  doctor [--json] [--fix]   full status + exact fixes; --json machine-readable;
+  doctor [--json] [--fix] [--remote]   full status + exact fixes; --json machine-readable;
                             --fix auto-wires a moved/missing figma-local entry
   use <port|url>            probe a local Dev Mode MCP server and wire it into config
   link <share-url|fileKey>  parse a Figma link -> fileKey + nodeId
   call <tool> [nodeId|JSON] raw MCP tools/call with no MCP client needed
                             tools: get_design_context, get_metadata, get_screenshot,
                             get_variable_defs, get_motion_context, get_figjam
+  tools [--json]            discover the connected server's tools
+  describe <tool>           inspect a tool input schema
+  resources [list|read URI] list or read MCP resources
+  prompts [list|get NAME]   list or retrieve MCP prompts
+  design <nodeId> <folder>  collect design context, screenshot, and available tokens
+  tokens <JSON> <prefix>    export flat variable JSON to CSS and TypeScript
+  compare <PNG> <PNG>       compare saved images; --json writes a structured report
+  install-skill             register the connection and domain skills
   diff <nodeId> <url>       screenshot Figma node vs implemented page, pixel-diff
                             [--viewport WxH] [--threshold N] [--full-page]
                             [--wait MS] [--resize] [--out prefix]
@@ -983,12 +911,13 @@ main() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --harness=*) HARNESS="${1#--harness=}"; shift ;;
-      --harness)   HARNESS="${2:-}"; shift 2 || true ;;
+      --harness)   [ $# -ge 2 ] || { bad "--harness requires a name"; return 1; }; HARNESS="$2"; shift 2 ;;
       *)           args+=("$1"); shift ;;
     esac
   done
   set -- ${args[@]+"${args[@]}"}
 
+  case "${HARNESS:-${FIGMA_WIRE_HARNESS:-}}" in ""|zcode|claude|codex|cursor|windsurf|vscode|gemini|generic|all) : ;; *) bad "Unknown harness. Use --help."; return 1 ;; esac
   local cmd="${1:-doctor}"
   [ $# -gt 0 ] && shift
 
@@ -997,6 +926,11 @@ main() {
     use)            [ $# -ge 1 ] || { bad "usage: figma-wire use <port|url>"; return 1; }; cmd_use "$1" ;;
     link)           [ $# -ge 1 ] || { bad "usage: figma-wire link <share-url|fileKey>"; return 1; }; cmd_link "$1" ;;
     call)           cmd_call "$@" ;;
+    tools)          cmd_mcp list "$@" ;;
+    describe|resources|prompts) cmd_mcp "$cmd" "$@" ;;
+    design)         bash "$SCRIPT_DIR/figma-design.sh" "$@" ;;
+    tokens)         bash "$SCRIPT_DIR/figma-tokens.sh" "$@" ;;
+    compare)        bash "$SCRIPT_DIR/figma-compare.sh" "$@" ;;
     diff)           cmd_diff "$@" ;;
     remote)         cmd_remote "$@" ;;
     fetch)          cmd_fetch "$@" ;;
@@ -1005,7 +939,7 @@ main() {
     install-skill)  cmd_install_skill ;;
     version|--version|-V) cmd_version ;;
     help|-h|--help) usage ;;
-    *) bad "unknown command: ${cmd}"; usage; return 1 ;;
+    *) bad "Unknown command. Use --help."; return 1 ;;
   esac
 }
 
