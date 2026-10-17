@@ -111,7 +111,7 @@
     "skills/figma-wire/tests/e2e.sh": "416b134e2ce7bc43de280c155127748098e7993a9f12df593331efbe384a9128",
     "skills/figma-wire/tests/fake-devmode-server.js": "30c277e15d63cb82ef5abf66a92ba9e5524c7289b01bd68602179f1e112f7e61",
     "skills/figma-wire/tests/run-tests.sh": "dfd3738fbce1dffcb5c0751804cd228519576d8add54c06d790fd79a3812d7e1",
-    "skills/figma-wire/tests/test-domains.sh": "66f906f56a6ae7725266f1200dfc42190bb85ef2b1d062dd7d6b51cba88c97cd",
+    "skills/figma-wire/tests/test-domains.sh": "539ef8acd437be6eeabac05c8676a4bb3e945f2e64bab7e0d19814b2d1934b8e",
     "skills/figma-wire/tests/test-install.sh": "393d3738c10359bfc3a4ef95a68cf46bbd0a03ebb9f39c28dcfeb300f937d2a3",
     "skills/figma-wire/tests/test-minimal-install.sh": "a5627668722c0fb5d04174836fd90f55c52501dba36091e5cb3db585e9a81a43",
     "skills/mcp-wire/LICENSE": "7437e0b3a7ffe957ef254702797df44d10e5ded3ce39e8acbd956bdf12df5b0c",

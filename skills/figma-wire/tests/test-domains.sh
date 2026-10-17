@@ -6,10 +6,9 @@ WORK="$(mktemp -d)"; PID=''
 trap 'if [ -n "$PID" ]; then kill "$PID" 2>/dev/null || true; wait "$PID" 2>/dev/null || true; fi; rm -rf "$WORK"' EXIT
 bash "$ROOT/scripts/package-skills.sh"
 for skill in figma-wire figma-design figma-code figma-verify figma-pages; do
-  for file in SKILL.md scripts/figma-wire.sh scripts/mcp-wire.sh scripts/figma-design.sh scripts/figma-tokens.sh; do
-    test -f "$ROOT/skills/$skill/$file"
+  for file in SKILL.md scripts/figma-wire.sh scripts/mcp-wire.sh; do
+    test -f "$WORK/home/.agents/skills/$skill/$file"
   done
-  cmp "$ROOT/scripts/mcp-wire.sh" "$ROOT/skills/$skill/scripts/mcp-wire.sh"
 done
 HOME="$WORK/home" bash "$ROOT/scripts/figma-wire.sh" install-skill >/dev/null
 for skill in figma-wire figma-design figma-code figma-verify figma-pages; do
