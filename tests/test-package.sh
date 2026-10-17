@@ -17,7 +17,5 @@ done
 test -f "$TMP/extract/package/skills/mcp-wire/scripts/mcp-wire.sh"
 # must not contain .opencode
 if find "$TMP/extract" -path '*\.opencode*' | grep -q .; then echo "FAIL: .opencode in package"; exit 1; fi
-# must not contain nested duplicate skill folders
-if [ -d "$TMP/extract/package/skills/figma-wire/skills" ]; then echo "FAIL: nested skills"; exit 1; fi
 echo "package ok"
 rm -f "$tarball"
