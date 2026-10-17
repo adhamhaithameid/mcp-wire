@@ -59,3 +59,16 @@ jobs:
           test "$EV" = "$PV" || { echo "version mismatch: engine=$EV package=$PV"; exit 1; }
       - name: Sync check
         run: bash scripts/sync-engine.sh --check skills/mcp-wire
+
+  jq16:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install jq 1.6
+        run: |
+          curl -fsSL -o /tmp/jq https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64
+          echo "af986793a515d500ab2d35f8d2aecd656e764504b789b6697e3a820e23277255  /tmp/jq" | sha256sum -c
+          chmod +x /tmp/jq
+          sudo mv /tmp/jq /usr/local/bin/jq
+      - name: Run engine tests
+        run: bash engine/tests/run-tests.sh

@@ -96,5 +96,19 @@ printf 'stale' >> "$SKILL/scripts/mcp-wire.sh"
 tfail "check: stale copy fails"     bash "$SYNC" --check "$SKILL"
 tfail "sync: missing dir rejected"  bash "$SYNC" "$TMP/does-not-exist"
 
+# --- stdio hardening tests ---
+STDIO_CRASH="$(mktemp)"
+cat > "$STDIO_CRASH" <<'NODE'
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  else process.exit(1);
+});
+NODE
+tfail "stdio crash handled" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_CRASH" '["node",$p]')" list --timeout 3
+rm -f "$STDIO_CRASH"
+
 echo "== results: ${PASS} passed, ${FAIL} failed =="
 [ "$FAIL" -eq 0 ]
+
