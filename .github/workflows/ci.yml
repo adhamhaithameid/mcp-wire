@@ -45,7 +45,7 @@ jobs:
         run: bash tests/e2e.sh
         working-directory: skills/figma-wire
       - name: Domain bundles and saved-image gate
-        run: bash tests/test-domains.sh
+        run: bash tests/test-domains.sh && bash tests/test-minimal-install.sh
         working-directory: skills/figma-wire
 
   shellcheck:
