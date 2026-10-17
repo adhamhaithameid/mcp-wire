@@ -1,0 +1,15 @@
+name: Figma Verify
+inputs:
+  page-url:
+    required: true
+  node-id:
+    required: true
+  tolerance:
+    default: "5"
+runs:
+  using: composite
+  steps:
+    - name: Run diff
+      shell: bash
+      run: |
+        echo "figma-verify placeholder: compare ${{ inputs.node-id }} vs ${{ inputs.page-url }} tolerance ${{ inputs.tolerance }}"
