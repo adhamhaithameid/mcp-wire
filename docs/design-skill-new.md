@@ -1,3 +1,7 @@
-# Skill new design
+# skill new design
 
-Introspect tools.
+## Flow
+Introspect tools/list, generate SKILL.md, tests skeleton, README, vendored engine.
+
+## Test plan
+Generated files pass lint-skills.sh.

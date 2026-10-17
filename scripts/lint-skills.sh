@@ -19,3 +19,6 @@ done
 # secrets patterns
 if grep -RniE 'Bearer [A-Za-z0-9_-]{20,}|figd_[A-Za-z0-9]+' skills/ 2>/dev/null; then echo "FAIL: secret pattern"; fail=1; fi
 exit $fail
+
+# no tracked .opencode
+if git ls-files | grep -q '\.opencode'; then echo "FAIL: tracked .opencode"; exit 1; fi

@@ -160,8 +160,13 @@ connect() {
         *) [ -n "${!e:-}" ] && env_args+=("$e=${!e}") ;;
       esac
     done
-    env -i "${env_args[@]}" "${command[@]}" <"$WORK/in" >"$WORK/out" 2>"$WORK/server.log" &
+    if command -v setsid >/dev/null 2>&1; then
+      setsid env -i "${env_args[@]}" "${command[@]}" <"$WORK/in" >"$WORK/out" 2>"$WORK/server.log" &
+    else
+      env -i "${env_args[@]}" "${command[@]}" <"$WORK/in" >"$WORK/out" 2>"$WORK/server.log" &
+    fi
     SERVER_PID=$!
+    disown "$SERVER_PID" 2>/dev/null || true
     stdio_send "$init" || return 1
     data=$(stdio_receive 1) || return 1
   else
@@ -259,7 +264,19 @@ emit_result() { # emit_result <data-line> <out-prefix>
 main() (
   local HEADERS=() SESSION_HEADERS=() args=() URL='' STDIO='' TIMEOUT=90 JSON_OUT=0 DRY_RUN=0 ALLOW_HTTP=0 PREFIX='' SESSION_ID='' TRANSPORT='session' REPLY='sse' STDIO_ENV=()
   local CONFIG="${MCP_WIRE_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/mcp-wire/servers.json}" WORK='' SERVER_PID=''
-  cleanup() { if [ -n "${SERVER_PID:-}" ]; then pkill -P "$SERVER_PID" 2>/dev/null; kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; fi; if [ -n "${SESSION_ID:-}" ] && [ -n "${URL:-}" ]; then curl -q -sS --max-time 2 -X DELETE "$URL" -H "Mcp-Session-Id: $SESSION_ID" >/dev/null 2>&1 || true; fi; [ -z "${WORK:-}" ] || rm -rf "$WORK"; }
+  cleanup() { if [ -n "${SERVER_PID:-}" ]; then
+  if command -v setsid >/dev/null 2>&1; then kill -- -"$SERVER_PID" 2>/dev/null; fi
+  pkill -P "$SERVER_PID" 2>/dev/null || true
+  # recursive descendants
+  _kill_tree() { local pid="$1"; local c; for c in $(pgrep -P "$pid" 2>/dev/null); do _kill_tree "$c"; done; kill -9 "$pid" 2>/dev/null || true; }
+  _kill_tree "$SERVER_PID"
+  sleep 0.2
+  _kill_tree "$SERVER_PID"
+  wait "$SERVER_PID" 2>/dev/null || true
+fi
+  if [ -n "${SESSION_ID:-}" ] && [ -n "${URL:-}" ]; then curl -q -sS --max-time 2 -X DELETE "$URL" -H "Mcp-Session-Id: $SESSION_ID" >/dev/null 2>&1 || true; fi
+  [ -z "${WORK:-}" ] || rm -rf "$WORK"
+}
   trap cleanup EXIT INT TERM
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -275,7 +292,11 @@ main() (
             [[ "$en" =~ ^[A-Za-z_][A-Za-z_0-9]*$ ]] && [[ "$hn" =~ ^[A-Za-z0-9-]+$ ]] || { bad "Use --header-env Header=ENV_NAME."; return 1; }
             [ -n "${!en:-}" ] || { bad "Required header environment variable is unset."; return 1; }
             HEADERS+=("$hn: ${!en}") ;;
-          --timeout) TIMEOUT="$2" ;; --config) CONFIG="$2" ;; --stdio) STDIO="$2" ;; -o) PREFIX="$2" ;; --env) STDIO_ENV+=("$2") ;;
+          --timeout) TIMEOUT="$2" ;; --config) CONFIG="$2" ;; --stdio) STDIO="$2" ;; -o) PREFIX="$2" ;; --env) 
+            _envname="${2%%=*}"
+            if [[ "$2" == *=* ]]; then _envname="${2%%=*}"; fi
+            [[ "$_envname" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { bad "Invalid env variable name: $_envname"; return 1; }
+            STDIO_ENV+=("$2") ;;
         esac
         shift 2 ;;
       --header=*) HEADERS+=("${1#--header=}"); shift ;;
@@ -416,7 +437,11 @@ main() (
         done < <(jq -r '.headers[]? // empty' <<<"$entry")
         # env allowlist from config
         while IFS= read -r _e; do
-          [ -n "$_e" ] && STDIO_ENV+=("$_e")
+          [ -n "$_e" ] || continue
+          _ename="$_e"
+          [[ "$_e" == *=* ]] && _ename="${_e%%=*}"
+          [[ "$_ename" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { bad "Invalid env variable name in config: $_ename"; return 1; }
+          STDIO_ENV+=("$_e")
         done < <(jq -r '.env[]? // empty' <<<"$entry")
         local envname headername
         while IFS=$'\t' read -r headername envname; do
@@ -430,6 +455,7 @@ main() (
   fi
   if [ -n "$STDIO" ]; then
     [ -z "$URL" ] || { bad "Choose one transport: URL or stdio."; return 1; }
+    jq -e 'type == "array" and length > 0 and all(.[]; type == "string")' <<<"$STDIO" >/dev/null 2>&1 || { bad "stdio command must be a non-empty array of strings."; return 1; }
     jq -e 'type == "array" and length > 0 and (.[0] | type) == "string" and (.[0] | length) > 0' <<<"$STDIO" >/dev/null 2>&1 || { bad "--stdio requires a JSON command array."; return 1; }
   else
     case "$URL" in

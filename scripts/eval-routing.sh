@@ -16,3 +16,9 @@ print("validated", n, "prompts")
 PY
 if [ -n "${ANTHROPIC_API_KEY:-}" ]; then echo "model step would run"; else echo "no API key; skipping model step (exit 0)"; fi
 exit 0
+
+# Model step (optional)
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  url="${ANTHROPIC_API_URL:-https://api.anthropic.com/v1/messages}"
+  echo "Model step: would call $url (not executed in hermetic env)"
+fi

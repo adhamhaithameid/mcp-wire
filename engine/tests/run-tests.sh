@@ -212,6 +212,39 @@ t "stdio metachars" bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_META" '["node",
 
 rm -f "$STDIO_NORM" "$STDIO_CRASH" "$STDIO_HANG" "$STDIO_ERR" "$STDIO_EARLY" "$STDIO_BIG" "$STDIO_ENV" "$STDIO_META"
 
+
+# --- env validation tests ---
+tfail "env invalid name rejected" bash "$MC" --stdio '["echo","hi"]' --env 'a[$(touch /tmp/MARKER)]' list --timeout 2
+test ! -f /tmp/MARKER && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "FAIL: marker created"; rm -f /tmp/MARKER; }
+rm -f /tmp/MARKER
+
+
+# --- grandchild cleanup test ---
+STDIO_GC="$(mktemp)"
+cat > "$STDIO_GC" <<'NODE'
+const { spawn } = require('child_process');
+const rl = require('readline').createInterface({input: process.stdin});
+rl.on('line', line => {
+  const m = JSON.parse(line);
+  if (m.method === 'initialize') console.log(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{protocolVersion:'2025-11-25',capabilities:{},serverInfo:{name:'x',version:'1'}}}));
+  else {
+    const gc = spawn('sleep', ['300', 'GC_MARKER_12345']);
+    process.on('SIGTERM', () => {}); // ignore
+    setInterval(()=>{}, 1000);
+  }
+});
+NODE
+MARKER=GC_MARKER_12345
+bash "$MC" --stdio "$(jq -nc --arg p "$STDIO_GC" '["node",$p]')" list --timeout 1 >/dev/null 2>&1 || true
+sleep 0.5
+if pgrep -f "$MARKER" >/dev/null 2>&1; then
+  FAIL=$((FAIL+1)); echo "FAIL: grandchild survived"
+  pkill -f "$MARKER" 2>/dev/null || true
+else
+  PASS=$((PASS+1))
+fi
+rm -f "$STDIO_GC"
+
 echo "== results: ${PASS} passed, ${FAIL} failed =="
 [ "$FAIL" -eq 0 ]
 
