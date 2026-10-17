@@ -26,6 +26,7 @@
     "engine/tests/test-figma-verify.sh": "8b745a34a12dd012bf3949cf7ccdf68e9f524b298268dc4aab8c343c5ccf79d5",
     "engine/tests/test-scripts.sh": "11147f8c31a9fffd5d9729bfa61c95af00635e01e4576a31111d0d5d9d4ec616",
     "engine/tests/test-tokens.sh": "7056716385daf5162cf4eba06a52a8c75f131d59bd97c5c9423cbfcb42907cbe",
+    "engine/tests/test-version.sh": "1076d1584caf570cd93e9f3b4a102cc16d32bb9f33f7f845c59cbf7c7e23da78",
     "scripts/check-family.sh": "951c4f5858f412b40260f3b6ff7e8a6d0999af4a4af9c544584fc52a2556eb06",
     "scripts/eval-routing.sh": "6d09fbea2bc02f227fb38e5495162c2c64f83fe6ba59af225137c611deabd667",
     "scripts/gen-tokens.sh": "2f744b87b89092e68ac98237573236440258e845462cd91f18d599b401ec52ab",
