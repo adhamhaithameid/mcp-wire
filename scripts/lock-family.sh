@@ -11,7 +11,7 @@ printf '{}\n' >"$WORK/files"
 while IFS= read -r file; do
   jq --arg file "$file" --arg sum "$(hash "$file")" '.+{($file):$sum}' "$WORK/files" >"$WORK/next"
   mv "$WORK/next" "$WORK/files"
-done < <(find engine skills scripts -type f ! -name '.DS_Store' ! -path '*/skills/figma-wire/*' | LC_ALL=C sort)
+done < <(git ls-files engine skills scripts | grep -v '/\.opencode/' | LC_ALL=C sort)
 jq -n --argjson files "$(cat "$WORK/files")" --argjson family "$(cat family.json)" '{format:1,family:$family,files:$files}' >"$WORK/lock"
 if [ "$MODE" = --write ]; then cp "$WORK/lock" family.lock.json; echo 'Family snapshot locked.'
 else cmp -s "$WORK/lock" family.lock.json || { echo 'Family snapshot changed. Review it, then run bash scripts/lock-family.sh --write.' >&2; exit 1; }; echo 'Family snapshot matches lock.'; fi
