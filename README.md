@@ -133,3 +133,7 @@ MIT license. See [LICENSE](LICENSE).
 ## Why not just the official Figma MCP server?
 
 This adds: works without MCP client support, verification gate, repair across harnesses, secrets hygiene, named servers.
+
+## Runtime requirements
+
+bash, curl, jq, base64, and standard POSIX utilities (tr, head, env, sleep). pgrep/pkill for stdio cleanup.

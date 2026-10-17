@@ -115,3 +115,7 @@ bash tests/test-family.sh
 
 The fixtures cover JSON, SSE, stateless operation, pagination, authenticated notifications, errors, images, resources, prompts, and stdio.
 Node.js is a test dependency, not an engine dependency.
+
+## Runtime requirements
+
+bash, curl, jq, base64, tr, head, env, sleep; pgrep/pkill for stdio.

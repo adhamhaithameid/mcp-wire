@@ -4,7 +4,8 @@ set -eu -o pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/bin" "$WORK/home/.local/bin"
-for utility in bash curl jq dirname mkdir cp chmod ln basename uname mktemp cat rm grep awk tar mv cmp; do
+for utility in bash curl jq base64 tr head env sleep dirname mkdir cp chmod ln basename uname mktemp cat rm grep awk tar mv cmp pgrep pkill setsid; do
+  command -v "$utility" >/dev/null 2>&1 || continue
   ln -s "$(command -v "$utility")" "$WORK/bin/$utility"
 done
 cp -R "$ROOT" "$WORK/source"
