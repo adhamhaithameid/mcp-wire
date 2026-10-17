@@ -430,7 +430,7 @@ main() (
   fi
   if [ -n "$STDIO" ]; then
     [ -z "$URL" ] || { bad "Choose one transport: URL or stdio."; return 1; }
-    jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and (contains("\n")|not) and (contains("\u0000")|not)) and .[0] != ""' <<<"$STDIO" >/dev/null 2>&1 || { bad "--stdio requires a JSON command array."; return 1; }
+    jq -e 'type == "array" and length > 0 and (.[0] | type) == "string" and (.[0] | length) > 0' <<<"$STDIO" >/dev/null 2>&1 || { bad "--stdio requires a JSON command array."; return 1; }
   else
     case "$URL" in
       https://*) : ;; http://*) [ "$ALLOW_HTTP" -eq 1 ] || { bad "Refusing plain HTTP. Pass --allow-http for trusted development."; return 1; } ;;
