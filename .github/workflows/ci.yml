@@ -87,3 +87,19 @@ jobs:
           else
             echo "actionlint download skipped"
           fi
+
+  release-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - run: bash scripts/check-family.sh
+      - run: bash engine/tests/run-tests.sh
+      - run: SKIP_NETWORK_TESTS=1 bash tests/run-tests.sh
+        working-directory: skills/figma-wire
+      - run: bash tests/e2e.sh
+        working-directory: skills/figma-wire
+      - run: cd skills/figma-wire && bash tests/test-domains.sh
+      - run: bash tests/test-package.sh

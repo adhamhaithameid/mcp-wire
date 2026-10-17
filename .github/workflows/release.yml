@@ -32,8 +32,8 @@ jobs:
         run: bash tests/e2e.sh
         working-directory: skills/figma-wire
 
-      - name: Family scaffold and domain checks
-        run: bash tests/test-family.sh && (cd skills/figma-wire && bash tests/test-domains.sh)
+      - name: Family domain checks
+        run: cd skills/figma-wire && bash tests/test-domains.sh
 
       - name: Verify extracted npm artifacts
         run: bash tests/test-package.sh
